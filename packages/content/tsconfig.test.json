@@ -1,10 +1,10 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": "src",
+    "composite": false,
+    "noEmit": true,
     "types": ["node"]
   },
-  "include": ["src"],
+  "include": ["src", "test"],
   "references": [{ "path": "../schema" }, { "path": "../sim" }]
 }

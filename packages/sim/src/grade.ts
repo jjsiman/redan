@@ -22,11 +22,11 @@ const PAR_TOLERANCE = 0.3;
  * (parcel, pieces, wind, seed) triple must grade identically in the
  * browser, Node, and an edge worker.
  *
- * `wind` is accepted for contract compatibility (doc 4.1) but not yet wired
- * into the shot model — no wind coefficients survived the doc reconstruction,
- * and inventing them isn't something we can calibrate against real holes.
+ * `wind` is now wired into the shot model (flight.ts#resolveFlight) — the
+ * yards-per-mph coefficients there are first-pass and uncalibrated, since no
+ * wind coefficients survived the doc reconstruction.
  */
-export function grade(parcel: Parcel, pieces: Piece[], _wind: Wind, seed: number): GradeResult {
+export function grade(parcel: Parcel, pieces: Piece[], wind: Wind, seed: number): GradeResult {
   const green = findGreen(pieces);
   if (!green) {
     throw new Error("grade(): design has no green piece placed");
@@ -45,7 +45,7 @@ export function grade(parcel: Parcel, pieces: Piece[], _wind: Wind, seed: number
 
   for (const name of ARCHETYPE_NAMES) {
     const stats = ARCHETYPES[name];
-    const result = searchRoute(parcel, terrain, greenCenter, stats, rng);
+    const result = searchRoute(parcel, terrain, greenCenter, stats, wind, rng);
     archetypes[name] = { mean: result.mean, sd: result.sd, route: result.route };
     const totalStrokes = result.trace.reduce((sum, s) => sum + 1 + s.penaltyStrokes, 0);
     traces.push({ archetype: name, shots: result.trace, totalStrokes });
@@ -59,7 +59,7 @@ export function grade(parcel: Parcel, pieces: Piece[], _wind: Wind, seed: number
   const routeSignatures = new Set(
     ARCHETYPE_NAMES.map((n) => {
       const r = archetypes[n].route;
-      return `${r.aimBias}:${r.laysUp}:${r.swingEffort}`;
+      return `${r.aimOffsetDeg}:${r.spin}:${r.power}:${r.laysUp}`;
     }),
   );
   const used = pieces.reduce((sum, p) => sum + (p.cost ?? 1), 0);

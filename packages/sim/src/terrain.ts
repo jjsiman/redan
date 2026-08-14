@@ -1,4 +1,4 @@
-import type { ElevationSample, LieType, Piece, RegionShape, Vec2 } from "./types.js";
+import type { ElevationFeature, ElevationSample, LieType, Parcel, Piece, RegionShape, Vec2 } from "./types.js";
 
 export interface LieFactors {
   distanceFactor: number;
@@ -88,20 +88,80 @@ export function elevationAt(profile: ElevationSample[] | undefined, x: number): 
 }
 
 /**
- * "Plays like" distance adjustment for a shot climbing/descending from
- * (fromX) to (toX). Uphill costs extra effective carry, downhill gives some
- * back — the classic ~1 yard of "plays like" per 3 feet of rise/fall rule of
- * thumb. This coefficient is a placeholder: elevation "re-opens every
- * coefficient" per the project doc, and hasn't been checked against a real
- * validation hole yet.
+ * Smooth falloff (cosine ease, 1 at the feature's own center down to 0 at
+ * its radius) so a mound has no seam where its influence ends. Uncalibrated
+ * — see the module doc comment above.
+ */
+function featureHeightAt(feature: ElevationFeature, x: number, y: number): number {
+  const d = Math.hypot(x - feature.x, y - feature.y);
+  if (d >= feature.radius) return 0;
+  const t = d / feature.radius;
+  const shape = (1 + Math.cos(Math.PI * t)) / 2;
+  return feature.height * shape;
+}
+
+/**
+ * Full 2D elevation (feet) at a point: the centerline profile (the hole's
+ * overall grade, uniform across width) plus every localized mound/hollow
+ * feature summed on top. This is the terrain's actual height function —
+ * `elevationAt` above is only its 1D slice along y=0.
+ */
+export function elevationAt2D(parcel: Parcel, x: number, y: number): number {
+  let z = elevationAt(parcel.elevationProfile, x);
+  if (parcel.elevationFeatures) {
+    for (const feature of parcel.elevationFeatures) {
+      z += featureHeightAt(feature, x, y);
+    }
+  }
+  return z;
+}
+
+const GRADIENT_EPSILON = 1;
+
+/**
+ * Numeric gradient (feet per yard) of `elevationAt2D` at (x, y), via central
+ * differences. Points uphill — toward higher ground. Cheap: a handful of
+ * feature evaluations, not a stored grid.
+ */
+export function gradientAt(parcel: Parcel, x: number, y: number): Vec2 {
+  const e = GRADIENT_EPSILON;
+  const dzdx =
+    (elevationAt2D(parcel, x + e, y) - elevationAt2D(parcel, x - e, y)) / (2 * e);
+  const dzdy =
+    (elevationAt2D(parcel, x, y + e) - elevationAt2D(parcel, x, y - e)) / (2 * e);
+  return { x: dzdx, y: dzdy };
+}
+
+/**
+ * "Plays like" distance adjustment (yards) for a shot climbing/descending
+ * from `from` to `to`. Uphill costs extra effective carry, downhill gives
+ * some back — the classic ~1 yard of "plays like" per 3 feet of rise/fall
+ * rule of thumb. This coefficient is a placeholder: elevation "re-opens
+ * every coefficient" per the project doc, and hasn't been checked against a
+ * real validation hole yet.
  */
 const ELEVATION_YARDS_PER_FOOT = 1 / 3;
 
-export function playsLikeDelta(
-  profile: ElevationSample[] | undefined,
-  fromX: number,
-  toX: number,
-): number {
-  const rise = elevationAt(profile, toX) - elevationAt(profile, fromX);
+export function playsLikeDelta(parcel: Parcel, from: Vec2, to: Vec2): number {
+  const rise = elevationAt2D(parcel, to.x, to.y) - elevationAt2D(parcel, from.x, from.y);
   return rise * ELEVATION_YARDS_PER_FOOT;
 }
+
+/**
+ * Base roll (yards) once a shot's carry lands, before slope adjusts it —
+ * `flight.ts#resolveRoll` scales this by the local slope along/across the
+ * shot's travel direction. Firm, mown lies (tee/fairway) roll the most;
+ * hazards and the green (absorbed into the putting model) don't roll at
+ * all. Uncalibrated — no real-hole check yet, same as every other new
+ * coefficient in this pass.
+ */
+export const ROLL_FACTORS: Record<LieType, number> = {
+  tee: 8,
+  fairway: 8,
+  rough: 3,
+  deep: 1,
+  bunker: 0,
+  green: 0,
+  water: 0,
+  ob: 0,
+};

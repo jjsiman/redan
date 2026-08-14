@@ -45,10 +45,13 @@ describe("grade — pipeline sanity", () => {
 });
 
 describe("grade — route search", () => {
-  it("biases the aim line around an obstacle on the dogleg fixture", () => {
+  it("steers around an obstacle on the dogleg fixture, via aim offset or curve", () => {
     const result = grade(dogleg.parcel, dogleg.pieces, NO_WIND, SEED);
-    const biased = ARCHETYPE_NAMES.some((n) => result.archetypes[n].route.aimBias !== 0);
-    expect(biased).toBe(true);
+    const steered = ARCHETYPE_NAMES.some((n) => {
+      const r = result.archetypes[n].route;
+      return r.aimOffsetDeg !== 0 || r.spin !== 0;
+    });
+    expect(steered).toBe(true);
   });
 });
 

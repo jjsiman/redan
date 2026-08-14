@@ -24,3 +24,6 @@ export function loadParcel(id: ParcelId): Parcel {
 export function loadDesign(id: ParcelId): Design {
   return readJson<Design>(`${id}.design.json`);
 }
+
+export { renderHoleSvg, renderElevationSvg, describeResult } from "./render.js";
+export type { Verdict } from "./render.js";

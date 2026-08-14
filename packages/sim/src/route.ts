@@ -5,35 +5,37 @@ import type {
   Route,
   Shot,
   Vec2,
+  Wind,
 } from "./types.js";
 import type { Rng } from "./rng.js";
 import { randNormalMV } from "./rng.js";
-import { lieAt, playsLikeDelta, type TerrainQuery } from "./terrain.js";
+import { lieAt, type TerrainQuery } from "./terrain.js";
 import { fullCarry, layupTarget, resolvePutts, shotDispersion } from "./shotModel.js";
+import { resolveFlight, resolveRoll } from "./flight.js";
 
 function dist(a: Vec2, b: Vec2): number {
   return Math.hypot(b.x - a.x, b.y - a.y);
 }
 
 /**
- * Lateral aim biases searched, as a fraction of corridor half-width, plus
- * whether to lay up short of the green when it isn't comfortably reachable,
- * plus how hard to swing (as a fraction of full carry) on a shot that's
- * neither a green attack nor a lay-up. This last dimension matters: the doc
- * notes the effort penalty makes swinging flat-out on every shot wrong — the
- * original calibration run found the bomber voluntarily throttling to 239
- * yards on Erin Hills 18 rather than swinging its full ~285, because the
- * effort penalty above 72% of full carry costs more control than the extra
- * yardage is worth. Without this dimension every "just advance the ball"
- * shot swings at exactly 100% effort (maximum penalty) by construction.
- *
- * This is the archetype's "route space" (doc 4.2): route choice and
- * archetype are the same axis, so each archetype searches this space
- * independently and keeps whichever candidate scores best.
+ * The archetype's "route space" (doc 4.2): route choice and archetype are
+ * the same axis, so each archetype independently searches this space and
+ * keeps whichever candidate scores best. Four dimensions:
+ *  - aim offset (degrees off the direct line to the target)
+ *  - spin (signed curve strength — see flight.ts)
+ *  - power (fraction of full carry, for shots that are neither a green
+ *    attack nor a lay-up — without this dimension every "just advance the
+ *    ball" shot would swing at exactly 100% effort by construction, the
+ *    failure mode the doc's Erin Hills 18 example describes fixing)
+ *  - lay-up (whether to lay up short of the green when it isn't comfortably
+ *    reachable, vs. always advancing at full power)
+ * Trimmed to ~3 candidates on aim/spin (72 combos total) to keep the grid
+ * search tractable now that it's 4-dimensional instead of 2.
  */
-const AIM_BIAS_CANDIDATES = [-0.7, -0.35, 0, 0.35, 0.7];
+const AIM_OFFSET_CANDIDATES = [-6, 0, 6];
+const SPIN_CANDIDATES = [-1, 0, 1];
+const POWER_CANDIDATES = [1.0, 0.9, 0.82, 0.72];
 const LAYUP_CANDIDATES = [true, false];
-const SWING_EFFORT_CANDIDATES = [1.0, 0.9, 0.82, 0.72];
 
 const ROUTE_SEARCH_TRIALS = 20;
 const FINAL_TRIALS = 150;
@@ -55,12 +57,43 @@ export interface RoundResult {
   shots: Shot[];
 }
 
+interface HazardDrop {
+  pos: Vec2;
+  lie: LieType;
+  penalty: number;
+}
+
+/** Water = 1 penalty stroke, drop back along the flight line until clear. OB = stroke and distance. */
+function resolveHazardDrop(
+  terrain: TerrainQuery,
+  point: Vec2,
+  hazardLie: "water" | "ob",
+  aux: number,
+  auy: number,
+  prevPos: Vec2,
+  prevLie: LieType,
+): HazardDrop {
+  if (hazardLie === "ob") {
+    return { pos: prevPos, lie: prevLie, penalty: 1 };
+  }
+  let pos = point;
+  let lie: LieType = "water";
+  let guard = 0;
+  while ((lie === "water" || lie === "ob") && guard < 10) {
+    pos = { x: pos.x - aux * WATER_DROP_BUFFER, y: pos.y - auy * WATER_DROP_BUFFER };
+    lie = lieAt(terrain, pos);
+    guard++;
+  }
+  return { pos, lie, penalty: 1 };
+}
+
 function playRound(
   parcel: Parcel,
   terrain: TerrainQuery,
   greenCenter: Vec2,
   stats: ArchetypeStats,
   route: Route,
+  wind: Wind,
   rng: Rng,
 ): RoundResult {
   let pos: Vec2 = { x: 0, y: 0 };
@@ -78,65 +111,60 @@ function playRound(
     } else if (route.laysUp && remaining <= full * LAYUP_ZONE_LIMIT) {
       targetDist = Math.min(full, Math.max(20, layupTarget(remaining, full)));
     } else {
-      targetDist = Math.min(remaining, full * route.swingEffort);
+      targetDist = Math.min(remaining, full * route.power);
     }
 
-    const goingForGreen = targetDist === remaining;
-    const dirX = greenCenter.x - pos.x;
-    const dirY = greenCenter.y - pos.y;
-    const dirLen = Math.hypot(dirX, dirY) || 1;
-    const ux = dirX / dirLen;
-    const uy = dirY / dirLen;
-    const px = -uy;
-    const py = ux;
-    const lateralOffset = goingForGreen ? 0 : route.aimBias * parcel.corridorHalfWidth;
+    // Phase 1: intended flight — a deterministic curved arc from aim/spin/wind/elevation.
+    const flight = resolveFlight(parcel, pos, greenCenter, targetDist, route, wind);
 
-    const aim: Vec2 = {
-      x: pos.x + ux * targetDist + px * lateralOffset,
-      y: pos.y + uy * targetDist + py * lateralOffset,
-    };
-
-    const aimDirX = aim.x - pos.x;
-    const aimDirY = aim.y - pos.y;
-    const aimLen = Math.hypot(aimDirX, aimDirY) || 1;
-    const aux = aimDirX / aimLen;
-    const auy = aimDirY / aimLen;
+    const flightDirX = flight.endpoint.x - pos.x;
+    const flightDirY = flight.endpoint.y - pos.y;
+    const flightLen = Math.hypot(flightDirX, flightDirY) || 1;
+    const aux = flightDirX / flightLen;
+    const auy = flightDirY / flightLen;
     const apx = -auy;
     const apy = aux;
 
+    // Phase 2: execution noise — the doc-calibrated sigma formulas, applied
+    // around the curved intended endpoint rather than a straight-line one.
     const { lateralSigma, distanceSigma } = shotDispersion(stats, lie, targetDist);
     const distanceError = randNormalMV(rng, 0, distanceSigma);
     const lateralError = randNormalMV(rng, 0, lateralSigma);
-    const elevDelta = playsLikeDelta(parcel.elevationProfile, pos.x, aim.x);
-    const actualDist = targetDist + distanceError - elevDelta;
-
-    const landing: Vec2 = {
-      x: pos.x + aux * actualDist + apx * lateralError,
-      y: pos.y + auy * actualDist + apy * lateralError,
+    const carryLanding: Vec2 = {
+      x: flight.endpoint.x + aux * distanceError + apx * lateralError,
+      y: flight.endpoint.y + auy * distanceError + apy * lateralError,
     };
+    const path = [...flight.path, carryLanding];
 
-    let penalty = 0;
-    let finalPos = landing;
-    let finalLie = lieAt(terrain, landing);
+    // Phase 3: hazard check on the fly, then ground roll, then a second
+    // hazard check — a ball can roll from the fairway into a bunker, off a
+    // false front, or into a pond it never flew over.
+    const carryLie = lieAt(terrain, carryLanding);
+    let finalPos: Vec2;
+    let finalLie: LieType;
+    let penalty: number;
 
-    if (finalLie === "water") {
-      penalty = 1;
-      let guard = 0;
-      finalPos = landing;
-      finalLie = "water";
-      while (finalLie === "water" || finalLie === "ob") {
-        finalPos = { x: finalPos.x - aux * WATER_DROP_BUFFER, y: finalPos.y - auy * WATER_DROP_BUFFER };
-        finalLie = lieAt(terrain, finalPos);
-        guard++;
-        if (guard > 10) break;
+    if (carryLie === "water" || carryLie === "ob") {
+      const hazard = resolveHazardDrop(terrain, carryLanding, carryLie, aux, auy, pos, lie);
+      finalPos = hazard.pos;
+      finalLie = hazard.lie;
+      penalty = hazard.penalty;
+    } else {
+      const rolled = resolveRoll(parcel, carryLanding, { x: aux, y: auy }, carryLie);
+      const rolledLie = lieAt(terrain, rolled);
+      if (rolledLie === "water" || rolledLie === "ob") {
+        const hazard = resolveHazardDrop(terrain, rolled, rolledLie, aux, auy, pos, lie);
+        finalPos = hazard.pos;
+        finalLie = hazard.lie;
+        penalty = hazard.penalty;
+      } else {
+        finalPos = rolled;
+        finalLie = rolledLie;
+        penalty = 0;
       }
-    } else if (finalLie === "ob") {
-      penalty = 1;
-      finalPos = pos;
-      finalLie = lie;
     }
 
-    shots.push({ from: pos, to: finalPos, lieAfter: finalLie, penaltyStrokes: penalty });
+    shots.push({ from: pos, to: finalPos, lieAfter: finalLie, penaltyStrokes: penalty, path });
     strokes += 1 + penalty;
     pos = finalPos;
     lie = finalLie;
@@ -176,22 +204,25 @@ export function searchRoute(
   terrain: TerrainQuery,
   greenCenter: Vec2,
   stats: ArchetypeStats,
+  wind: Wind,
   rng: Rng,
 ): RouteSearchResult {
   let best: { route: Route; mean: number; sd: number } | null = null;
 
-  for (const aimBias of AIM_BIAS_CANDIDATES) {
-    for (const laysUp of LAYUP_CANDIDATES) {
-      for (const swingEffort of SWING_EFFORT_CANDIDATES) {
-        const route: Route = { aimBias, laysUp, swingEffort };
-        const scores: number[] = [];
-        for (let i = 0; i < ROUTE_SEARCH_TRIALS; i++) {
-          scores.push(playRound(parcel, terrain, greenCenter, stats, route, rng).strokes);
-        }
-        const m = mean(scores);
-        const sd = stddev(scores, m);
-        if (!best || m < best.mean || (m === best.mean && sd < best.sd)) {
-          best = { route, mean: m, sd };
+  for (const aimOffsetDeg of AIM_OFFSET_CANDIDATES) {
+    for (const spin of SPIN_CANDIDATES) {
+      for (const laysUp of LAYUP_CANDIDATES) {
+        for (const power of POWER_CANDIDATES) {
+          const route: Route = { aimOffsetDeg, spin, power, laysUp };
+          const scores: number[] = [];
+          for (let i = 0; i < ROUTE_SEARCH_TRIALS; i++) {
+            scores.push(playRound(parcel, terrain, greenCenter, stats, route, wind, rng).strokes);
+          }
+          const m = mean(scores);
+          const sd = stddev(scores, m);
+          if (!best || m < best.mean || (m === best.mean && sd < best.sd)) {
+            best = { route, mean: m, sd };
+          }
         }
       }
     }
@@ -201,7 +232,7 @@ export function searchRoute(
   const scores: number[] = [];
   let trace: Shot[] = [];
   for (let i = 0; i < FINAL_TRIALS; i++) {
-    const result = playRound(parcel, terrain, greenCenter, stats, chosen, rng);
+    const result = playRound(parcel, terrain, greenCenter, stats, chosen, wind, rng);
     scores.push(result.strokes);
     if (i === 0) trace = result.shots;
   }
@@ -212,9 +243,10 @@ export function searchRoute(
 }
 
 export const ROUTE_SEARCH_TUNABLES = {
-  AIM_BIAS_CANDIDATES,
+  AIM_OFFSET_CANDIDATES,
+  SPIN_CANDIDATES,
+  POWER_CANDIDATES,
   LAYUP_CANDIDATES,
-  SWING_EFFORT_CANDIDATES,
   ROUTE_SEARCH_TRIALS,
   FINAL_TRIALS,
   MAX_SHOTS_PER_ROUND,

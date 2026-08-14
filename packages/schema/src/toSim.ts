@@ -58,6 +58,13 @@ export function toSimInputs(parcel: Parcel, design: Design): SimInputs {
   }
 
   const elevationProfile = parcel.elevationProfile?.map((s) => ({ x: s.y, z: s.z }));
+  // radius/height are frame-invariant (a distance and a height, not a
+  // direction) — only the center point crosses the portrait/sim rotation.
+  const elevationFeatures = parcel.elevationFeatures?.map((f) => ({
+    ...toSimPoint(f),
+    radius: f.radius,
+    height: f.height,
+  }));
 
   return {
     parcel: {
@@ -69,6 +76,7 @@ export function toSimInputs(parcel: Parcel, design: Design): SimInputs {
       // exactOptionalPropertyTypes: only set the key when there's a value —
       // an explicit `elevationProfile: undefined` is a type error, not a no-op.
       ...(elevationProfile ? { elevationProfile } : {}),
+      ...(elevationFeatures ? { elevationFeatures } : {}),
     },
     pieces: design.pieces.map(placedShapeToSimPiece),
   };

@@ -74,6 +74,20 @@ describe("toSimInputs", () => {
     expect(bunker.y).toBeCloseTo(-15, 6);
   });
 
+  it("maps elevation feature centers through the frame rotation, leaving radius/height untouched", () => {
+    const parcelWithMound: Parcel = {
+      ...parcel,
+      elevationFeatures: [{ x: 10, y: 300, radius: 25, height: 8 }],
+    };
+    const { parcel: simParcel } = toSimInputs(parcelWithMound, design);
+    expect(simParcel.elevationFeatures).toHaveLength(1);
+    const feature = simParcel.elevationFeatures![0]!;
+    expect(feature.x).toBeCloseTo(300, 6);
+    expect(feature.y).toBeCloseTo(-10, 6);
+    expect(feature.radius).toBe(25);
+    expect(feature.height).toBe(8);
+  });
+
   it("throws on a parcelId mismatch", () => {
     const wrongDesign: Design = { ...design, parcelId: "other" };
     expect(() => toSimInputs(parcel, wrongDesign)).toThrow(/parcel/);

@@ -1,0 +1,407 @@
+// Dev-only: generates a static HTML preview of the example content parcels.
+// Not part of the package's public build — run directly with `pnpm run preview`.
+import { writeFileSync, mkdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { grade, ARCHETYPE_NAMES, SIM_VERSION } from "@redan/sim";
+import { toSimInputs, validateDesign, SCHEMA_VERSION } from "@redan/schema";
+import { PARCEL_IDS, loadParcel, loadDesign, renderHoleSvg, renderElevationSvg, describeResult } from "../dist/index.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const SEED = 20260814;
+
+function describeRoute(route) {
+  const aim =
+    route.aimOffsetDeg === 0
+      ? "straight"
+      : `${Math.abs(route.aimOffsetDeg)}° ${route.aimOffsetDeg > 0 ? "right" : "left"}`;
+  const curve = route.spin === 0 ? "no curve" : route.spin > 0 ? "fades" : "draws";
+  const strategy = route.laysUp ? "lays up when it can't reach" : "always advances";
+  return `${aim} aim, ${curve} · ${strategy} · ${Math.round(route.power * 100)}% power`;
+}
+
+function starRow(stars) {
+  const filled = "★".repeat(stars);
+  const empty = "☆".repeat(3 - stars);
+  return `<span class="stars" aria-label="${stars} of 3 stars"><span class="stars-filled">${filled}</span><span class="stars-empty">${empty}</span></span>`;
+}
+
+function renderCard(id) {
+  const parcel = loadParcel(id);
+  const design = loadDesign(id);
+  const validation = validateDesign(parcel, design);
+  const { parcel: simParcel, pieces } = toSimInputs(parcel, design);
+  const result = grade(simParcel, pieces, { speed: 0, dirDeg: 0 }, SEED);
+  const verdict = describeResult(parcel, result);
+  const elevationSvg = renderElevationSvg(parcel);
+
+  const rows = ARCHETYPE_NAMES.map((name) => {
+    const a = result.archetypes[name];
+    return `<tr>
+      <td><span class="swatch swatch-${name.toLowerCase()}"></span>${name}</td>
+      <td class="num">${a.mean.toFixed(2)}</td>
+      <td class="num">${a.sd.toFixed(2)}</td>
+      <td class="route">${describeRoute(a.route)}</td>
+    </tr>`;
+  }).join("\n");
+
+  const m = result.metrics;
+  const sentences = verdict.sentences.map((s) => `<li>${s}</li>`).join("\n");
+
+  return `<article class="card">
+  <header class="card-head">
+    <div>
+      <p class="eyebrow">${id}</p>
+      <h2>Par ${parcel.par}</h2>
+    </div>
+    ${starRow(verdict.stars)}
+  </header>
+
+  <div class="card-body">
+    <div class="diagram">
+      ${renderHoleSvg(parcel, design, result)}
+      ${elevationSvg ?? ""}
+    </div>
+
+    <div class="panel">
+      <table class="archetype-table">
+        <caption>Archetype results (seed ${SEED})</caption>
+        <thead>
+          <tr><th scope="col">Archetype</th><th scope="col">Mean</th><th scope="col">SD</th><th scope="col">Route</th></tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+
+      <dl class="metrics">
+        <div><dt>Field</dt><dd>${m.field.toFixed(2)}</dd></div>
+        <div><dt>Spread</dt><dd>${m.spread.toFixed(2)}</dd></div>
+        <div><dt>σ</dt><dd>${m.sd.toFixed(2)}</dd></div>
+        <div><dt>Routes</dt><dd>${m.routes}</dd></div>
+        <div><dt>Used / Cap</dt><dd>${m.used} / ${m.cap}</dd></div>
+        <div><dt>Par OK</dt><dd class="${m.parOK ? "status-good" : "status-warn"}">${m.parOK ? "yes" : "no"}</dd></div>
+      </dl>
+
+      <ul class="coaching">
+        ${sentences}
+      </ul>
+
+      ${validation.valid ? "" : `<p class="status-warn small">Tray validation: ${validation.errors.join("; ")}</p>`}
+    </div>
+  </div>
+</article>`;
+}
+
+const cards = PARCEL_IDS.map(renderCard).join("\n\n");
+
+const html = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Two Holes, Four Golfers</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+:root {
+  color-scheme: light;
+  --ground: #f0f2e8;
+  --surface: #fbfbf5;
+  --surface-2: #f3f5e9;
+  --ink: #171a12;
+  --ink-secondary: #4d5142;
+  --ink-muted: #82866f;
+  --border: rgba(23,26,18,0.12);
+  --accent: #1f6b3a;
+  --accent-ink: #f5f8f0;
+  --terrain-fairway: #bcd9a0;
+  --terrain-rough: #93ab77;
+  --terrain-green: #dcefc0;
+  --terrain-bunker: #e8d9a8;
+  --terrain-water: #a9cfe0;
+  --terrain-deep: #6b7d43;
+  --terrain-mound: #c9843f;
+  --terrain-hollow: #4f5fa8;
+  --ob-line: #b5432c;
+  --diagram-line: rgba(23,26,18,0.35);
+  --diagram-tee: #171a12;
+  --status-good-c: #0ca30c;
+  --status-warn-c: #b5432c;
+  --arc-bomber: #2a78d6;
+  --arc-straight: #eb6834;
+  --arc-scrambler: #1baf7a;
+  --arc-touch: #eda100;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground: #12140f;
+    --surface: #1a1e15;
+    --surface-2: #202417;
+    --ink: #f1f2ea;
+    --ink-secondary: #c7cab8;
+    --ink-muted: #8b8f79;
+    --border: rgba(241,242,234,0.14);
+    --accent: #4fbd7c;
+    --accent-ink: #0d130d;
+    --terrain-fairway: #33502c;
+    --terrain-rough: #202b17;
+    --terrain-green: #4a7a3c;
+    --terrain-bunker: #6b5a34;
+    --terrain-water: #1f3f52;
+    --terrain-deep: #2c3418;
+    --terrain-mound: #d9954f;
+    --terrain-hollow: #6a7ac2;
+    --ob-line: #e2725a;
+    --diagram-line: rgba(241,242,234,0.30);
+    --diagram-tee: #f1f2ea;
+    --status-good-c: #0ca30c;
+    --status-warn-c: #e2725a;
+    --arc-bomber: #3987e5;
+    --arc-straight: #d95926;
+    --arc-scrambler: #199e70;
+    --arc-touch: #c98500;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground: #12140f;
+  --surface: #1a1e15;
+  --surface-2: #202417;
+  --ink: #f1f2ea;
+  --ink-secondary: #c7cab8;
+  --ink-muted: #8b8f79;
+  --border: rgba(241,242,234,0.14);
+  --accent: #4fbd7c;
+  --accent-ink: #0d130d;
+  --terrain-fairway: #33502c;
+  --terrain-rough: #202b17;
+  --terrain-green: #4a7a3c;
+  --terrain-bunker: #6b5a34;
+  --terrain-water: #1f3f52;
+  --terrain-deep: #2c3418;
+  --terrain-mound: #d9954f;
+  --terrain-hollow: #6a7ac2;
+  --ob-line: #e2725a;
+  --diagram-line: rgba(241,242,234,0.30);
+  --diagram-tee: #f1f2ea;
+  --status-good-c: #0ca30c;
+  --status-warn-c: #e2725a;
+  --arc-bomber: #3987e5;
+  --arc-straight: #d95926;
+  --arc-scrambler: #199e70;
+  --arc-touch: #c98500;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.5;
+}
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2.25rem;
+}
+header.top { display: flex; flex-direction: column; gap: 0.5rem; }
+.eyebrow-top {
+  font-size: 0.72rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+h1 {
+  font-family: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+  font-size: 2rem;
+  margin: 0;
+  text-wrap: balance;
+  color: var(--ink);
+}
+.lede { color: var(--ink-secondary); max-width: 62ch; margin: 0; }
+.lede .warn { color: var(--status-warn-c); }
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: 1.5rem;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+.card-head h2 {
+  font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+  font-size: 1.3rem;
+  margin: 0.1rem 0 0;
+}
+.eyebrow {
+  font-size: 0.7rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  margin: 0;
+  font-weight: 600;
+}
+.stars { font-size: 1.2rem; letter-spacing: 0.05em; white-space: nowrap; }
+.stars-filled { color: var(--accent); }
+.stars-empty { color: var(--border); }
+
+.card-body {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.diagram {
+  flex: 0 0 auto;
+  max-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.hole-figure, .elevation-figure { margin: 0; }
+.hole-figure svg {
+  display: block;
+  height: 440px;
+  width: auto;
+  max-width: 100%;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+.elevation-figure svg { width: 100%; height: auto; }
+figcaption {
+  font-size: 0.72rem;
+  color: var(--ink-muted);
+  margin-top: 0.35rem;
+}
+
+.panel {
+  flex: 1 1 320px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.archetype-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.archetype-table caption {
+  text-align: left;
+  font-size: 0.72rem;
+  color: var(--ink-muted);
+  margin-bottom: 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.archetype-table th, .archetype-table td {
+  text-align: left;
+  padding: 0.35rem 0.5rem 0.35rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.archetype-table th { color: var(--ink-muted); font-weight: 600; font-size: 0.76rem; }
+.archetype-table td.num, .metrics dd { font-variant-numeric: tabular-nums; }
+.route { color: var(--ink-secondary); font-size: 0.8rem; }
+
+.swatch {
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 2px;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+}
+.swatch-bomber { background: var(--arc-bomber); }
+.swatch-straight { background: var(--arc-straight); }
+.swatch-scrambler { background: var(--arc-scrambler); }
+.swatch-touch { background: var(--arc-touch); }
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 0.4rem 1.25rem;
+  margin: 0;
+  background: var(--surface-2);
+  border-radius: 6px;
+  padding: 0.6rem 0.9rem;
+}
+.metrics > div { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.82rem; }
+.metrics dt { color: var(--ink-muted); margin: 0; }
+.metrics dd { margin: 0; font-weight: 600; }
+
+.coaching {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.86rem;
+  color: var(--ink-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.status-good { color: var(--status-good-c); font-weight: 600; }
+.status-warn { color: var(--status-warn-c); font-weight: 600; }
+.small { font-size: 0.78rem; }
+
+footer.notes {
+  border-top: 1px solid var(--border);
+  padding-top: 1.25rem;
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+footer.notes code {
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  background: var(--surface-2);
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <p class="eyebrow-top">Redan · M0 development preview</p>
+    <h1>Two holes, four golfers, one seed</h1>
+    <p class="lede">Every number below comes from <code>@redan/sim</code>'s <code>grade()</code>, run against the two example parcels in <code>@redan/content</code>. <span class="warn">Not validated against real holes</span> — the original course-geometry validation set was lost; this checks that the pipeline works, not that it's calibrated correctly yet.</p>
+  </header>
+
+  <div class="cards">
+    ${cards}
+  </div>
+
+  <footer class="notes">
+    <p>simVersion <code>${SIM_VERSION}</code> · schemaVersion <code>${SCHEMA_VERSION}</code> · seed <code>${SEED}</code></p>
+    <p>Regenerate with <code>pnpm --filter @redan/content run preview</code> after any change to a fixture, coefficient, or example parcel.</p>
+  </footer>
+</div>
+</body>
+</html>
+`;
+
+const outDir = join(__dirname, "..", "out");
+mkdirSync(outDir, { recursive: true });
+const outFile = join(outDir, "preview.html");
+writeFileSync(outFile, html, "utf-8");
+console.log(`Wrote ${outFile}`);

@@ -10,12 +10,24 @@ export {
   layupTarget,
   resolvePutts,
 } from "./shotModel.js";
-export { lieAt, lieFactors, findGreen, elevationAt, playsLikeDelta } from "./terrain.js";
+export {
+  lieAt,
+  lieFactors,
+  findGreen,
+  elevationAt,
+  elevationAt2D,
+  gradientAt,
+  playsLikeDelta,
+  ROLL_FACTORS,
+} from "./terrain.js";
+export { resolveFlight, resolveRoll } from "./flight.js";
+export type { FlightResult } from "./flight.js";
 
 export type {
   ArchetypeName,
   ArchetypeStats,
   ArchetypeResult,
+  ElevationFeature,
   ElevationSample,
   GradeMetrics,
   GradeResult,

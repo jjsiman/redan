@@ -21,6 +21,19 @@ export interface TrayEntry {
 }
 
 /**
+ * A localized mound (height > 0) or hollow (height < 0), in the portrait
+ * frame — see @redan/sim's `ElevationFeature`. Radius and height are
+ * frame-invariant (a distance and a height, not a direction), so only the
+ * center point crosses the portrait/sim rotation in `toSim.ts`.
+ */
+export interface ElevationFeature {
+  x: number;
+  y: number;
+  radius: number;
+  height: number;
+}
+
+/**
  * Terrain + tee + par + tray envelope, in the portrait frame. Does not
  * include the green — per doc 1, the player places the green too, same as
  * hazards, as one of the tray pieces.
@@ -43,6 +56,8 @@ export interface Parcel {
    * current elevation model exactly. Flat if omitted.
    */
   elevationProfile?: { y: number; z: number }[];
+  /** Optional localized mounds/hollows layered on top of the centerline profile. Fixed, parcel-authored — never a tray piece. */
+  elevationFeatures?: ElevationFeature[];
 }
 
 /**

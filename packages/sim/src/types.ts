@@ -52,6 +52,23 @@ export interface ElevationSample {
 }
 
 /**
+ * A localized bump (mound, height > 0) or dip (hollow/swale, height < 0)
+ * layered on top of the centerline profile. Influence decays smoothly to
+ * zero at `radius` yards from (x, y) — see `terrain.ts#elevationAt2D`. This
+ * is what makes terrain genuinely 2D: the centerline profile alone can only
+ * express "the hole climbs a hill," uniform across the whole corridor width;
+ * features are how a mound near the green or a bump in the fairway can
+ * actually redirect a ball sideways. Parcel-authored and fixed — never a
+ * player-placed tray piece.
+ */
+export interface ElevationFeature {
+  x: number;
+  y: number;
+  radius: number;
+  height: number;
+}
+
+/**
  * Terrain + tee + par + wind envelope. Does NOT include the green — the
  * player places the green as a piece, same as hazards.
  */
@@ -64,12 +81,14 @@ export interface Parcel {
   obHalfWidth: number;
   /** Total piece-cost budget available (`cap` in the star-3 "used < cap" gate). */
   pieceCap: number;
-  /** Optional centerline elevation profile. Flat (all z=0) if omitted. */
+  /** Optional centerline elevation profile (the hole's overall grade). Flat (all z=0) if omitted. */
   elevationProfile?: ElevationSample[];
+  /** Optional localized mounds/hollows layered on top of the centerline profile. */
+  elevationFeatures?: ElevationFeature[];
 }
 
 export interface Wind {
-  /** yards/hour-equivalent magnitude; contract placeholder, not yet wired into the shot model. */
+  /** mph. Wired into flight.ts#resolveFlight; the yards-per-mph coefficients there are first-pass, uncalibrated. */
   speed: number;
   /** degrees, 0 = blowing from tee toward green (helping). */
   dirDeg: number;
@@ -90,6 +109,8 @@ export interface Shot {
   to: Vec2;
   lieAfter: LieType;
   penaltyStrokes: number;
+  /** A few sampled points along the curved flight path, tee-to-landing, for rendering the actual curve. */
+  path?: Vec2[];
 }
 
 export interface ShotPath {
@@ -98,14 +119,23 @@ export interface ShotPath {
   totalStrokes: number;
 }
 
-/** The aim strategy an archetype settled on after route search. */
+/**
+ * The shot-shaping policy an archetype settled on after route search — its
+ * aim, power, and spin, plus the higher-level go-for-it/lay-up strategy.
+ * `laysUp` still picks the *target point* (unchanged reach/layup logic in
+ * route.ts); `aimOffsetDeg`/`power`/`spin` are how the archetype tries to
+ * execute toward that target, resolved into an actual curved flight by
+ * `flight.ts#resolveFlight`.
+ */
 export interface Route {
-  /** Lateral aim bias as a fraction of corridor half-width, in [-1, 1]. */
-  aimBias: number;
+  /** Aim angle (degrees) off the direct line to the target, positive = right. */
+  aimOffsetDeg: number;
+  /** Signed curve strength/direction: negative draws left, positive fades right. */
+  spin: number;
+  /** Swing power as a fraction of full carry, for shots that are neither an attack on the green nor a lay-up. */
+  power: number;
   /** Whether this archetype lays up on approach when it can't comfortably reach. */
   laysUp: boolean;
-  /** Swing effort as a fraction of full carry, for shots that are neither an attack on the green nor a lay-up. */
-  swingEffort: number;
 }
 
 export interface ArchetypeResult {
