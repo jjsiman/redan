@@ -1,0 +1,12 @@
+{
+  "id": "01-one-bunker",
+  "schemaVersion": "0.1.0",
+  "par": 4,
+  "corridorHalfWidth": 22,
+  "obHalfWidth": 42,
+  "pieceCap": 2,
+  "tray": [
+    { "shapeId": "green-large", "count": 1 },
+    { "shapeId": "bunker-pot", "count": 1 }
+  ]
+}

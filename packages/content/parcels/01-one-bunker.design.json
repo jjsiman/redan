@@ -1,0 +1,8 @@
+{
+  "parcelId": "01-one-bunker",
+  "schemaVersion": "0.1.0",
+  "pieces": [
+    { "shapeId": "green-large", "x": 0, "y": 380, "rot": 0, "scale": 1 },
+    { "shapeId": "bunker-pot", "x": 14, "y": 220, "rot": 0, "scale": 1 }
+  ]
+}

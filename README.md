@@ -10,9 +10,18 @@ The third star requires restraint. The land should do the work.
 
 ## Status
 
-Early development — M0 (Trustworthy Sim) in progress.
+Early development — M0 (Trustworthy Sim) in progress. `packages/sim`, `packages/schema`, and `packages/content` exist and are wired together end to end (JSON parcel → schema adapter → `grade()`), validated against hand-authored fixtures only — the real validation set (traced real-hole geometry, needed for M0's actual gate) hasn't been rebuilt yet. See each package's README for what's implemented vs. still deferred.
 
 See [`docs/redan-project-doc.md`](docs/redan-project-doc.md) for the full design document, sim contract, calibration status, and milestone gates.
+
+## Development
+
+```
+pnpm install
+pnpm build   # tsc -b across all packages
+pnpm test    # vitest run across all packages
+pnpm lint    # eslint across all packages (packages/sim includes the portability checks)
+```
 
 ## Repo shape
 

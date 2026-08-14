@@ -1,0 +1,27 @@
+{
+  "name": "@redan/schema",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Parcel + design types, versioned. Portrait-frame wire format and the adapter into @redan/sim's internal frame.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src test"
+  },
+  "dependencies": {
+    "@redan/sim": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4",
+    "eslint": "^9.14.0",
+    "typescript-eslint": "^8.13.0"
+  }
+}

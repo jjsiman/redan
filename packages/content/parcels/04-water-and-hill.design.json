@@ -1,0 +1,8 @@
+{
+  "parcelId": "04-water-and-hill",
+  "schemaVersion": "0.1.0",
+  "pieces": [
+    { "shapeId": "green-large", "x": 0, "y": 400, "rot": 0, "scale": 1 },
+    { "shapeId": "water-pond", "x": -10, "y": 260, "rot": 0, "scale": 1 }
+  ]
+}

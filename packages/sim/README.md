@@ -18,7 +18,7 @@ Pure and deterministic: the same four inputs always produce byte-identical outpu
 
 ### Coordinate frame
 
-Tee at the origin, green at +x. `x` = yards down the fairway, `y` = lateral yards off centerline. This is the sim's internal frame only; parcels are authored and rendered portrait, and rotation into this frame happens at the render/schema boundary (not built yet), never inside the sim.
+Tee at the origin, green at +x. `x` = yards down the fairway, `y` = lateral yards off centerline. This is the sim's internal frame only; parcels are authored and rendered portrait, and rotation into this frame happens at the render/schema boundary — `packages/schema`'s `toSimInputs` — never inside the sim.
 
 ### What's implemented
 
@@ -30,11 +30,10 @@ Tee at the origin, green at +x. `x` = yards down the fairway, `y` = lateral yard
 
 ### What's explicitly deferred (not in this pass)
 
-- **packages/schema** — the frozen `{ parcelId, pieces: [{ shapeId, x, y, rot, scale }] }` design-serialization format. `Piece`/`Parcel` here are sim-internal and minimal, not that frozen contract.
-- **packages/content** — no JSON parcel authoring pipeline; fixtures are hand-written TS objects for tests only.
 - **Fairway generator + rough bands** — terrain here is explicit regions (a fixed corridor + placed-piece footprints), not auto-derived from a fairway shape.
-- **Shape parameter table** — pot vs. coffin bunker dimensions etc. are undefined; fixtures use plain circles/rects.
 - **CLI validation harness + real-hole geometry** — no traced courses, no report format, no gate check yet.
+
+`packages/schema` (frozen design-serialization format + a first-draft shape parameter table) and `packages/content` (example JSON parcels) now exist — see their READMEs. `Piece`/`Parcel` here remain sim-internal; `packages/schema/src/toSim.ts` is the adapter.
 - **Wind** — `grade()` accepts a `wind` parameter for contract compatibility, but it's inert. No wind coefficients survived the doc reconstruction, and inventing them isn't something that can be calibrated against anything real right now.
 - **Renderer surface interface** — out of scope for the sim package by definition.
 

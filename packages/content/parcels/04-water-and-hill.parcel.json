@@ -1,0 +1,17 @@
+{
+  "id": "04-water-and-hill",
+  "schemaVersion": "0.1.0",
+  "par": 4,
+  "corridorHalfWidth": 24,
+  "obHalfWidth": 45,
+  "pieceCap": 2,
+  "tray": [
+    { "shapeId": "green-large", "count": 1 },
+    { "shapeId": "water-pond", "count": 1 }
+  ],
+  "elevationProfile": [
+    { "y": 0, "z": 0 },
+    { "y": 180, "z": 22 },
+    { "y": 400, "z": 8 }
+  ]
+}
