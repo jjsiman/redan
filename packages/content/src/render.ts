@@ -101,40 +101,57 @@ function renderPiece(piece: Design["pieces"][number], width: number, height: num
   return `<rect x="${cx - hl}" y="${cy - hw}" width="${hl * 2}" height="${hw * 2}" fill="${fill}" stroke="var(--diagram-line)" stroke-width="0.6" transform="rotate(${-piece.rot} ${cx} ${cy})" />`;
 }
 
+function svgPolyline(points: Vec2[], width: number, height: number): string {
+  return points.map((p) => `${svgX(p.x, width)},${svgY(p.y, height)}`).join(" ");
+}
+
 /**
  * Draws each shot's actual curved flight (`shot.path`, sampled by
  * flight.ts#resolveFlight) rather than a straight line to its rest point —
  * spin and wind are otherwise invisible in the diagram. Falls back to a
- * straight segment to `shot.to` when `path` is absent. Landing markers sit
- * only at each shot's final rest point, not every path sample.
+ * straight segment to `shot.to` when `path` is absent.
+ *
+ * A penalty shot (water/OB) is drawn in two visually distinct pieces, not
+ * one continuous line: the attempted flight (faded, in the archetype's
+ * color) out to wherever it actually landed, then a short muted dotted
+ * connector to `shot.to` — which for OB is stroke-and-distance, i.e. back
+ * at `shot.from`. Joining those into one solid line reads as a nonsensical
+ * zigzag (the ball appearing to fly out toward a hazard and instantly snap
+ * back); drawing the reset as its own faint segment tells the honest story
+ * instead — this shot was attempted, then replayed.
  */
 function renderTrace(archetype: ArchetypeName, shots: Shot[], width: number, height: number): string {
   const style = ARCHETYPE_STYLE[archetype];
-  const pathPoints: Vec2[] = [{ x: 0, y: 0 }];
-  const landingPoints: Vec2[] = [];
+  const colorVar = `var(${style.varName})`;
+  const parts: string[] = [];
 
   for (const shot of shots) {
-    for (const p of shot.path ?? []) pathPoints.push(toPortraitPoint(p));
+    const flight = [toPortraitPoint(shot.from), ...(shot.path ?? []).map(toPortraitPoint)];
     const landing = toPortraitPoint(shot.to);
-    pathPoints.push(landing);
-    landingPoints.push(landing);
+
+    if (shot.penaltyStrokes > 0) {
+      const flightSvg = svgPolyline(flight, width, height);
+      parts.push(`<polyline points="${flightSvg}" fill="none" stroke="var(--surface)" stroke-width="3.2" stroke-linejoin="round" />`);
+      parts.push(
+        `<polyline points="${flightSvg}" fill="none" stroke="${colorVar}" stroke-width="1.4" stroke-dasharray="${style.dash}" stroke-linejoin="round" stroke-opacity="0.5" />`,
+      );
+      const last = flight[flight.length - 1]!;
+      const dropSvg = svgPolyline([last, landing], width, height);
+      parts.push(`<polyline points="${dropSvg}" fill="none" stroke="var(--diagram-line)" stroke-width="0.8" stroke-dasharray="1 2" />`);
+    } else {
+      const svgPoints = svgPolyline([...flight, landing], width, height);
+      parts.push(`<polyline points="${svgPoints}" fill="none" stroke="var(--surface)" stroke-width="3.2" stroke-linejoin="round" />`);
+      parts.push(
+        `<polyline points="${svgPoints}" fill="none" stroke="${colorVar}" stroke-width="1.4" stroke-dasharray="${style.dash}" stroke-linejoin="round" />`,
+      );
+    }
+
+    const cx = svgX(landing.x, width);
+    const cy = svgY(landing.y, height);
+    parts.push(`<g fill="${colorVar}" stroke="var(--surface)" stroke-width="0.8">${markerPath(style.marker, cx, cy, 2.4)}</g>`);
   }
 
-  const svgPoints = pathPoints.map((p) => `${svgX(p.x, width)},${svgY(p.y, height)}`).join(" ");
-  const colorVar = `var(${style.varName})`;
-
-  const haloLine = `<polyline points="${svgPoints}" fill="none" stroke="var(--surface)" stroke-width="3.2" stroke-linejoin="round" />`;
-  const colorLine = `<polyline points="${svgPoints}" fill="none" stroke="${colorVar}" stroke-width="1.4" stroke-dasharray="${style.dash}" stroke-linejoin="round" />`;
-
-  const markers = landingPoints
-    .map((p) => {
-      const cx = svgX(p.x, width);
-      const cy = svgY(p.y, height);
-      return `<g fill="${colorVar}" stroke="var(--surface)" stroke-width="0.8">${markerPath(style.marker, cx, cy, 2.4)}</g>`;
-    })
-    .join("");
-
-  return haloLine + colorLine + markers;
+  return parts.join("\n");
 }
 
 /**
