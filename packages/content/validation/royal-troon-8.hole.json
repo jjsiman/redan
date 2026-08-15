@@ -1,0 +1,49 @@
+{
+  "id": "royal-troon-8",
+  "course": "Royal Troon",
+  "hole": 8,
+  "par": 3,
+  "yardage": 123,
+  "wind": { "speed": 0, "dirDeg": 0 },
+  "expected": {
+    "favors": ["STRAIGHT", "TOUCH"],
+    "tie": true,
+    "rationale": "Paul McGinley: 'It's not about distance, it's about course management, it's about shaping a shot, it's about touch and feel.' Phil Mickelson separately praised it as a rare hole that 'challenges a player for his precision as opposed to solely length.' Both quotes emphasize precision/touch generically without distinguishing line-accuracy from short-game feel, and the hole's real defense (a minuscule ~12x10-yard green plus severe bunkering with genuinely difficult sand recovery) plausibly punishes a STRAIGHT archetype's off-line tee shot and a weak-short-game archetype's bunker recovery about equally — a genuine tie, not a forced single pick.",
+    "sources": [
+      "Golf Digest, 'British Open 2024: The fascinating origin of Royal Troon's most famous hole' (McGinley quote)",
+      "Golf.com, 'Royal Troon's Postage Stamp: Breaking Down the Tough Par 3' (Mickelson quote)",
+      "The Open (official), 'The Postage Stamp | The 152nd Open | Royal Troon'"
+    ]
+  },
+  "approximations": [
+    "no numeric scoring average found; multiple sources state it played over par for the field in the 2016 Open despite being the shortest hole",
+    "green scaled to 70% of the green-small primitive (radius ~6.3 yds) to approximate the real green's unusually tiny ~12x10-yard footprint",
+    "Firth of Clyde wind not modeled (zero-wind convention)",
+    "the five bunkers (including the 'Coffin' bunker) are approximated as five bunker-pot primitives at estimated, not surveyed, positions"
+  ],
+  "disagreement": null,
+  "parcel": {
+    "id": "royal-troon-8",
+    "schemaVersion": "0.1.0",
+    "par": 3,
+    "corridorHalfWidth": 14,
+    "obHalfWidth": 40,
+    "pieceCap": 6,
+    "tray": [
+      { "shapeId": "green-small", "count": 1 },
+      { "shapeId": "bunker-pot", "count": 5 }
+    ]
+  },
+  "design": {
+    "parcelId": "royal-troon-8",
+    "schemaVersion": "0.1.0",
+    "pieces": [
+      { "shapeId": "bunker-pot", "x": -9, "y": 118, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": 9, "y": 118, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": -11, "y": 128, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": 11, "y": 128, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": -10, "y": 132, "rot": 0, "scale": 1 },
+      { "shapeId": "green-small", "x": 0, "y": 123, "rot": 0, "scale": 0.7 }
+    ]
+  }
+}

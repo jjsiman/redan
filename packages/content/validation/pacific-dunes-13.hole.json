@@ -1,0 +1,52 @@
+{
+  "id": "pacific-dunes-13",
+  "course": "Pacific Dunes",
+  "hole": 13,
+  "par": 4,
+  "yardage": 444,
+  "wind": { "speed": 0, "dirDeg": 0 },
+  "expected": {
+    "favors": ["BOMBER", "STRAIGHT"],
+    "tie": true,
+    "rationale": "The original SCRAMBLER hypothesis for this hole was factually wrong and is rejected here: at 444 yards with an unrecoverable ocean cliff running the entire left side (tee to green) and severe dunes/bunkers right, this is not the short, hazard-light, recovery-rewarding hole it was assumed to be. GolfCourseGurus explicitly states the hole 'rewards aggressive shot-making and accuracy' and 'punishes timid play and wayward drives into either hazard.' Registered as a genuine BOMBER/STRAIGHT toss-up: the ~225-yard carry requirement rewards power, but neither hazard offers a scrambler-friendly recovery.",
+    "sources": [
+      "The Fried Egg, 'Pacific Dunes Course Review and Rating'",
+      "GolfCourseGurus, 'Pacific Dunes (Bandon, Oregon) review'",
+      "Bandon Dunes Golf (official), Pacific Dunes No. 13 posting (427-444 yards)"
+    ]
+  },
+  "approximations": [
+    "no scoring average available (resort course, no tournament history)",
+    "the ocean cliff (left side, tee-to-green) is approximated as a series of water-creek segments; the real hazard is unrecoverable (lost ball/OB), which the sim's one-stroke water penalty understates",
+    "the 60-foot dune near the green is approximated as a scaled-up bunker",
+    "the hog's-back fairway ridge that redirects short drives right is not modeled (no ball-redirect-on-carry mechanic beyond existing roll/slope)"
+  ],
+  "disagreement": "Pre-registered as a BOMBER/STRAIGHT tie; observed is a STRAIGHT/TOUCH tie (margin 0.17, above TIE_EPSILON so not even a tie-match on its own terms), meaning both the archetype pair and the tie-closeness are off. Consistent with the shared root cause on augusta-13: STRAIGHT's structurally lower dispersion coefficient makes it the default winner across this entire real-hole set almost regardless of hole design, so a pre-registered BOMBER-inclusive tie was always a stretch against that pattern. TOUCH's presence as the second-place archetype (rather than BOMBER) is the more surprising part and not fully explained by the shared root cause alone -- worth a closer look if this hole's geometry is revisited, but not adjusted here since there's no scoring-average signal to confirm the encoding itself is at fault.",
+  "parcel": {
+    "id": "pacific-dunes-13",
+    "schemaVersion": "0.1.0",
+    "par": 4,
+    "corridorHalfWidth": 30,
+    "obHalfWidth": 60,
+    "pieceCap": 7,
+    "tray": [
+      { "shapeId": "green-small", "count": 1 },
+      { "shapeId": "water-creek", "count": 4 },
+      { "shapeId": "bunker-coffin", "count": 1 },
+      { "shapeId": "bunker-pot", "count": 1 }
+    ]
+  },
+  "design": {
+    "parcelId": "pacific-dunes-13",
+    "schemaVersion": "0.1.0",
+    "pieces": [
+      { "shapeId": "water-creek", "x": -35, "y": 60, "rot": 90, "scale": 1 },
+      { "shapeId": "water-creek", "x": -35, "y": 180, "rot": 90, "scale": 1 },
+      { "shapeId": "water-creek", "x": -35, "y": 300, "rot": 90, "scale": 1 },
+      { "shapeId": "water-creek", "x": -35, "y": 420, "rot": 90, "scale": 1 },
+      { "shapeId": "bunker-coffin", "x": 32, "y": 250, "rot": 90, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": 30, "y": 420, "rot": 0, "scale": 1.5 },
+      { "shapeId": "green-small", "x": 5, "y": 440, "rot": 0, "scale": 0.9 }
+    ]
+  }
+}

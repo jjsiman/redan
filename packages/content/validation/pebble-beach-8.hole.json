@@ -1,0 +1,50 @@
+{
+  "id": "pebble-beach-8",
+  "course": "Pebble Beach",
+  "hole": 8,
+  "par": 4,
+  "yardage": 428,
+  "wind": { "speed": 0, "dirDeg": 0 },
+  "expected": {
+    "favors": ["STRAIGHT"],
+    "rationale": "The approach — 175-200 yards across an ocean chasm from a bluff to a small, canted green — is repeatedly framed as a precision/club-selection puzzle rather than a power test. Jack Nicklaus called it 'the finest second shot in golf' for its demand of an exact line and number into a small target, not for its length.",
+    "sources": [
+      "Golf.com, 'How Pebble Beach altered — and safeguarded! — dramatic 8th hole'",
+      "Golf.com, 'What you can learn from the par-4 8th hole at Pebble Beach'",
+      "Golf Digest, 'The 7 most spectacular but daunting shots at Pebble Beach'"
+    ]
+  },
+  "approximations": [
+    "no reliable major-championship scoring average found for this hole; plausibility check left inactive rather than using non-major Pro-Am data",
+    "the ocean chasm/cliff is approximated as a stack of four water-creek segments spanning the required carry, not literal ocean/cliff geometry",
+    "the blind, uphill tee shot is not modeled (no line-of-sight or blind-shot mechanic)"
+  ],
+  "disagreement": null,
+  "parcel": {
+    "id": "pebble-beach-8",
+    "schemaVersion": "0.1.0",
+    "par": 4,
+    "corridorHalfWidth": 18,
+    "obHalfWidth": 48,
+    "pieceCap": 8,
+    "tray": [
+      { "shapeId": "green-small", "count": 1 },
+      { "shapeId": "water-creek", "count": 4 },
+      { "shapeId": "bunker-pot", "count": 3 }
+    ]
+  },
+  "design": {
+    "parcelId": "pebble-beach-8",
+    "schemaVersion": "0.1.0",
+    "pieces": [
+      { "shapeId": "water-creek", "x": 0, "y": 260, "rot": 0, "scale": 1 },
+      { "shapeId": "water-creek", "x": 0, "y": 300, "rot": 0, "scale": 1 },
+      { "shapeId": "water-creek", "x": 0, "y": 340, "rot": 0, "scale": 1 },
+      { "shapeId": "water-creek", "x": 0, "y": 380, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": -10, "y": 415, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": 10, "y": 415, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": 0, "y": 430, "rot": 0, "scale": 1 },
+      { "shapeId": "green-small", "x": 0, "y": 420, "rot": 0, "scale": 1 }
+    ]
+  }
+}

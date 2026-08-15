@@ -1,0 +1,8 @@
+{
+  "parcelId": "03-split-par5",
+  "schemaVersion": "0.2.0",
+  "pieces": [
+    { "shapeId": "green-large", "x": 15, "y": 540, "rot": 0, "scale": 1 },
+    { "shapeId": "bunker-pot", "x": 0, "y": 515, "rot": 0, "scale": 1 }
+  ]
+}

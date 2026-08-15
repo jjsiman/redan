@@ -1,4 +1,14 @@
-import type { ElevationFeature, ElevationSample, LieType, Parcel, Piece, RegionShape, Vec2 } from "./types.js";
+import type {
+  CorridorStation,
+  ElevationFeature,
+  ElevationSample,
+  LieType,
+  Parcel,
+  Piece,
+  RegionShape,
+  Vec2,
+} from "./types.js";
+import { pointInPolygon, projectToPolyline, polylineLength, type PolylineProjection } from "./geom.js";
 
 export interface LieFactors {
   distanceFactor: number;
@@ -35,22 +45,73 @@ function containsPoint(piece: Piece, p: Vec2): boolean {
   if (shape.kind === "circle") {
     return lx * lx + ly * ly <= shape.radius * shape.radius;
   }
-  return Math.abs(lx) <= shape.halfLength && Math.abs(ly) <= shape.halfWidth;
+  if (shape.kind === "rect") {
+    return Math.abs(lx) <= shape.halfLength && Math.abs(ly) <= shape.halfWidth;
+  }
+  return pointInPolygon(shape.points, { x: lx, y: ly });
+}
+
+/**
+ * The corridor centerline compiled to a polyline plus per-station widths,
+ * once per `grade()` call rather than once per lie query — lie queries run
+ * tens of thousands of times per hole.
+ */
+export interface CompiledCorridor {
+  points: Vec2[];
+  halfWidths: number[];
+  obHalfWidths: number[];
+  length: number;
+}
+
+export function compileCorridor(corridor: CorridorStation[]): CompiledCorridor {
+  const points = corridor.map((s) => ({ x: s.x, y: s.cy }));
+  return {
+    points,
+    halfWidths: corridor.map((s) => s.halfWidth),
+    obHalfWidths: corridor.map((s) => s.obHalfWidth),
+    length: polylineLength(points),
+  };
+}
+
+/** Migration/authoring helper: a straight, unbending corridor of the given length. */
+export function straightCorridor(length: number, halfWidth: number, obHalfWidth: number): CorridorStation[] {
+  return [
+    { x: 0, cy: 0, halfWidth, obHalfWidth },
+    { x: length, cy: 0, halfWidth, obHalfWidth },
+  ];
+}
+
+/** True if any station drifts more than 5 yards off centerline — the gate for searching route.ts's aimLine dimension. */
+export function corridorBends(corridor: CorridorStation[]): boolean {
+  return corridor.some((s) => Math.abs(s.cy) > 5);
+}
+
+function widthAt(widths: number[], segIndex: number, t: number): number {
+  const a = widths[segIndex] ?? 0;
+  const b = widths[Math.min(segIndex + 1, widths.length - 1)] ?? a;
+  const tc = Math.max(0, Math.min(1, t));
+  return a + (b - a) * tc;
 }
 
 export interface TerrainQuery {
-  corridorHalfWidth: number;
-  obHalfWidth: number;
+  corridor: CompiledCorridor;
   pieces: Piece[];
 }
 
 /**
- * Resolves the lie at a point: OB bound first, then pieces in placement
- * order (later pieces override earlier ones, so overlapping hazards resolve
- * to "whatever was placed last"), then the fairway corridor, then rough.
+ * Resolves the lie at a point: past the corridor's arc-length extent is OB
+ * first (this also fixes a bug the old scalar-corridor model had — a ball
+ * far downrange of the green used to still resolve "fairway" since only
+ * `|y|` was ever checked), then lateral OB, then pieces in placement order
+ * (later pieces override earlier ones), then the fairway corridor, then
+ * rough.
  */
 export function lieAt(terrain: TerrainQuery, p: Vec2): LieType {
-  if (Math.abs(p.y) > terrain.obHalfWidth) return "ob";
+  const proj: PolylineProjection = projectToPolyline(terrain.corridor.points, p);
+  if (proj.beyond) return "ob";
+
+  const obHalf = widthAt(terrain.corridor.obHalfWidths, proj.segIndex, proj.t);
+  if (Math.abs(proj.offset) > obHalf) return "ob";
 
   let resolved: LieType | null = null;
   for (const piece of terrain.pieces) {
@@ -58,7 +119,8 @@ export function lieAt(terrain: TerrainQuery, p: Vec2): LieType {
   }
   if (resolved) return resolved;
 
-  return Math.abs(p.y) <= terrain.corridorHalfWidth ? "fairway" : "rough";
+  const fairwayHalf = widthAt(terrain.corridor.halfWidths, proj.segIndex, proj.t);
+  return Math.abs(proj.offset) <= fairwayHalf ? "fairway" : "rough";
 }
 
 /** Finds the green piece a design must include. Returns the first if several were placed. */

@@ -1,0 +1,47 @@
+{
+  "id": "augusta-12",
+  "course": "Augusta National",
+  "hole": 12,
+  "par": 3,
+  "yardage": 155,
+  "scoringAverage": 3.27,
+  "wind": { "speed": 0, "dirDeg": 0 },
+  "expected": {
+    "favors": ["TOUCH"],
+    "rationale": "Every source frames this hole around precision and nerve, not power: it is the shortest hole at Augusta yet one of the hardest, because success depends on correctly gauging swirling, unpredictable wind (up to a four-club differential) and landing a short iron softly on a shallow, well-guarded green — a touch/finesse skill, not raw line accuracy or distance.",
+    "sources": [
+      "The Fried Egg, 'Every Hole at Augusta National — No. 12, Golden Bell'",
+      "SI.com, 'Masters 12th Hole: Stats, History, Memorable Moments'",
+      "PGA.com, 'How to Play the 12th Hole at Augusta National'"
+    ]
+  },
+  "approximations": [
+    "swirling Amen Corner wind (up to a 4-club effect) not modeled; sim run at zero wind per this validation set's convention, which likely understates this hole's real difficulty and variance",
+    "155 yards is the standard Masters tournament tee"
+  ],
+  "disagreement": "Observed result is a near-exact STRAIGHT/TOUCH tie (margin 0.00) — mechanically this disagrees because TOUCH alone was pre-registered rather than a tie, not because the model favors STRAIGHT decisively. This actually matches doc 4.4's own documented pattern for short precision par-3s ('the two short par 3s put STRAIGHT and TOUCH within 0.01 of each other, which is the right answer for holes where power is worthless'). In hindsight this hole should have been pre-registered as a tie like Royal Troon 8 and Pebble Beach 7; the single-archetype registration was my oversight, not a model finding. See the shared root-cause note on augusta-13 for why STRAIGHT (not TOUCH outright) is the model's default at this yardage: at 155 yards, no archetype crosses the 72%-of-full-carry effort threshold, so dispersion is set purely by each archetype's base accuracy coefficient, and STRAIGHT's (0.046) is far below TOUCH's (0.074) — TOUCH's only advantage, its putting bonus, isn't enough to close a proximity gap set well before the green.",
+  "parcel": {
+    "id": "augusta-12",
+    "schemaVersion": "0.1.0",
+    "par": 3,
+    "corridorHalfWidth": 16,
+    "obHalfWidth": 40,
+    "pieceCap": 5,
+    "tray": [
+      { "shapeId": "green-small", "count": 1 },
+      { "shapeId": "water-creek", "count": 1 },
+      { "shapeId": "bunker-pot", "count": 3 }
+    ]
+  },
+  "design": {
+    "parcelId": "augusta-12",
+    "schemaVersion": "0.1.0",
+    "pieces": [
+      { "shapeId": "water-creek", "x": 0, "y": 140, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": -8, "y": 150, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": 6, "y": 163, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": 10, "y": 167, "rot": 0, "scale": 1 },
+      { "shapeId": "green-small", "x": 0, "y": 155, "rot": 0, "scale": 1 }
+    ]
+  }
+}

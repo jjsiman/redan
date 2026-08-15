@@ -10,7 +10,13 @@ const PARCELS_DIR = new URL("../parcels/", import.meta.url);
  * content set (doc 7's "[thin]" regional content sets), which needs its own
  * authoring pass once the fairway generator and a real editor exist.
  */
-export const PARCEL_IDS = ["01-one-bunker", "04-water-and-hill"] as const;
+export const PARCEL_IDS = [
+  "01-one-bunker",
+  "02-dogleg-left",
+  "03-split-par5",
+  "04-water-and-hill",
+  "05-drivable-four",
+] as const;
 export type ParcelId = (typeof PARCEL_IDS)[number];
 
 function readJson<T>(filename: string): T {
@@ -27,3 +33,7 @@ export function loadDesign(id: ParcelId): Design {
 
 export { renderHoleSvg, renderElevationSvg, describeResult } from "./render.js";
 export type { Verdict } from "./render.js";
+
+// The real-hole validation harness (loadValidationHoles/runValidation/etc.)
+// is parked, not exported here — see validation/_parked/validation.ts's
+// header comment and docs/redan-project-doc.md §4.4/§9.

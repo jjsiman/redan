@@ -1,0 +1,44 @@
+{
+  "id": "shinnecock-7",
+  "course": "Shinnecock Hills",
+  "hole": 7,
+  "par": 3,
+  "yardage": 189,
+  "wind": { "speed": 0, "dirDeg": 0 },
+  "expected": {
+    "favors": ["TOUCH"],
+    "rationale": "This is the namesake Redan hole for the project. The green is angled diagonally (high front-right to low back-left) with a false front and a severe overall tilt; architecture writers describe the 'correct' shot as landing short-right and using the green's contour to feed the ball down and left, which demands precise trajectory and spin/landing-spot control rather than raw distance or line accuracy.",
+    "sources": [
+      "The Fried Egg, 'Breaking down Shinnecock Hills' Seventh Hole, Redan'",
+      "Golf Club Atlas, '7th Hole | Shinnecock Hills Golf Club'",
+      "Athlon Sports, 'What Is A Redan? And Other Cool Design Components Of Shinnecock Hills'"
+    ]
+  },
+  "approximations": [
+    "no hole-specific scoring average found",
+    "the Redan green's diagonal tilt, false front, and ground-feed contour are not modeled by the sim's flat circular green primitive; represented only via a slightly larger green and two left-side bunkers",
+    "189 yards is the 2018 U.S. Open tournament yardage; other sources cite 175-194 yards depending on year/tee"
+  ],
+  "disagreement": "Same root cause as augusta-13. At 189 yards, STRAIGHT's effort (0.80) does cross the 72% penalty threshold, but its base coefficient (0.046) is low enough that even after the penalty (k~1.14, giving an effective coefficient of ~0.053) it still beats BOMBER's unpenalized coefficient (0.080, since BOMBER's effort here is only 0.66) and TOUCH's penalized one (~0.081). Margin is small (0.07) and seed-unstable. As with augusta-12, this is close to the doc's own documented STRAIGHT-approx-TOUCH pattern for short precision par-3s, just with a wider gap than the doc's 0.01 example and a TOUCH, not tie, pre-registration.",
+  "parcel": {
+    "id": "shinnecock-7",
+    "schemaVersion": "0.1.0",
+    "par": 3,
+    "corridorHalfWidth": 18,
+    "obHalfWidth": 45,
+    "pieceCap": 3,
+    "tray": [
+      { "shapeId": "green-large", "count": 1 },
+      { "shapeId": "bunker-pot", "count": 2 }
+    ]
+  },
+  "design": {
+    "parcelId": "shinnecock-7",
+    "schemaVersion": "0.1.0",
+    "pieces": [
+      { "shapeId": "bunker-pot", "x": -14, "y": 182, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": -16, "y": 196, "rot": 0, "scale": 1 },
+      { "shapeId": "green-large", "x": 0, "y": 189, "rot": 0, "scale": 1 }
+    ]
+  }
+}

@@ -1,11 +1,11 @@
 import type { Parcel, Piece } from "../../src/types.js";
+import { straightCorridor } from "../../src/terrain.js";
 
 /** Flat, wide-open, no hazards. Baseline sanity check: does the pipeline run at all. */
 export const parcel: Parcel = {
   id: "fixture-straight",
   par: 4,
-  corridorHalfWidth: 25,
-  obHalfWidth: 45,
+  corridor: straightCorridor(440, 25, 45),
   pieceCap: 3,
 };
 

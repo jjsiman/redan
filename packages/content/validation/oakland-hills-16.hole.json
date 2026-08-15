@@ -1,0 +1,48 @@
+{
+  "id": "oakland-hills-16",
+  "course": "Oakland Hills (South)",
+  "hole": 16,
+  "par": 4,
+  "yardage": 406,
+  "scoringAverage": 4.337,
+  "wind": { "speed": 0, "dirDeg": 0 },
+  "expected": {
+    "favors": ["STRAIGHT"],
+    "rationale": "Robert Trent Jones's 1950-51 remodel deliberately pinched the fairway landing area to under 30 yards wide at the dogleg-right turn, so the reward for length (cutting the corner) is a landing area too narrow to reliably hit. Accuracy off the tee and into a tightly guarded, three-tier green is what the hole tests, not distance.",
+    "sources": [
+      "The Fried Egg, 'Oakland Hills Country Club (South) Course Review and Rating'",
+      "Sports Talk Florida, 'Taming the Monster: A Round at Oakland Hills'",
+      "Cybergolf, 'PGA Championship Preview: Oakland Hills (South Course)'"
+    ]
+  },
+  "approximations": [
+    "the parcel's corridor is set wide (38 yds half-width) to give the dogleg room; the actual bend is carved by a rough band and a fairway bunker rather than by a bent centerline, per this validation set's 'carve, not bend' convention",
+    "the sharp ~75-degree turn in the final 100 yards is approximated, not surveyed",
+    "the pond immediately left of the green and the green's three-tier slope are approximated as a single water-pond piece and a plain small green"
+  ],
+  "disagreement": null,
+  "parcel": {
+    "id": "oakland-hills-16",
+    "schemaVersion": "0.1.0",
+    "par": 4,
+    "corridorHalfWidth": 38,
+    "obHalfWidth": 55,
+    "pieceCap": 4,
+    "tray": [
+      { "shapeId": "green-small", "count": 1 },
+      { "shapeId": "rough-band", "count": 1 },
+      { "shapeId": "bunker-coffin", "count": 1 },
+      { "shapeId": "water-pond", "count": 1 }
+    ]
+  },
+  "design": {
+    "parcelId": "oakland-hills-16",
+    "schemaVersion": "0.1.0",
+    "pieces": [
+      { "shapeId": "rough-band", "x": -25, "y": 350, "rot": 90, "scale": 1 },
+      { "shapeId": "bunker-coffin", "x": 2, "y": 290, "rot": 90, "scale": 1 },
+      { "shapeId": "water-pond", "x": 18, "y": 395, "rot": 0, "scale": 1 },
+      { "shapeId": "green-small", "x": 35, "y": 400, "rot": 0, "scale": 1 }
+    ]
+  }
+}

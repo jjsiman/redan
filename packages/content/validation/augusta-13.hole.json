@@ -1,0 +1,49 @@
+{
+  "id": "augusta-13",
+  "course": "Augusta National",
+  "hole": 13,
+  "par": 5,
+  "yardage": 510,
+  "scoringAverage": 4.62,
+  "wind": { "speed": 0, "dirDeg": 0 },
+  "expected": {
+    "favors": ["BOMBER"],
+    "rationale": "The hole is built entirely around the go-for-the-green-in-two decision over Rae's Creek: a long, well-placed drive turns the second shot from a fairway-wood risk-reward gamble into a short-iron near-certainty. Augusta National's own rationale for lengthening the hole in 2023 ('restore risk and reward,' put a driver in play more often) and commentary that the change 'helped the bombers more' both point to power, not accuracy, as the lever.",
+    "sources": [
+      "SI.com, 'Masters 13th Hole: Stats, History, Memorable Moments'",
+      "The Fried Egg, 'Every Hole at Augusta National — No. 13, Azalea'",
+      "Golf Digest, 'How Augusta National quietly transformed its iconic 13th hole'"
+    ]
+  },
+  "approximations": [
+    "Rae's Creek tributary approximated as three long water-creek segments down the left side plus one crossing the green's front, not a literal meandering creek",
+    "green sized small (green-small) to reflect the tightly guarded 13th green",
+    "using the 2021 tee (510 yds) to match the cited 4.62 scoring average; the 2023+ lengthening to 545 yds is not modeled"
+  ],
+  "disagreement": "Root-cause note (referenced from every disagreeing hole in this set): across all 16 real holes (106-663 yards), STRAIGHT wins or ties every single one, including holes real-world commentary attributes to BOMBER, TOUCH, or SCRAMBLER. Cause: the archetype table's accuracy spread gives STRAIGHT a base lateral-dispersion coefficient (0.105-accuracy*0.062 = 0.046) roughly 1.5-1.75x smaller than every other archetype's (BOMBER 0.080, SCRAMBLER 0.071, TOUCH 0.074) BEFORE the effort penalty is applied. The effort penalty (doc 4.3's k=1+2.4*(effort-0.72)^1.15, kicking in above 72% of full carry) does inflate weaker-power archetypes' dispersion at real hole lengths, but its magnitude is not large enough to close that base gap at the yardages in this set. This reproduces, hole for hole, the exact 'accuracy always wins' failure mode doc 4.3 describes the effort penalty being built (over four iterations) to prevent -- except here, even with the penalty present exactly as documented, it does not prevent that failure mode against this independently-sourced, real-hole set. For Augusta 13 specifically: at the tee, BOMBER's effort is 510/284.75=... reachable well under threshold on the drive, but the creek positioned at the corridor edge is found disproportionately often by BOMBER's wide dispersion (lateral sigma coefficient 1.74x STRAIGHT's) even though BOMBER's two-shot-reach advantage is real -- the model's field average (4.79) is close to the published 4.62, so the geometry encoding is plausible; the miss is in which archetype benefits, not whether the hole plays hard. Two untried hypotheses, deliberately not pursued in this pass per the discipline rule (any coefficient change needs its own simVersion bump and full re-validation): (a) the effort-penalty coefficient may have drifted from the original lost calibration; (b) today's archetype accuracy spread (0.40-0.95) may be wider than what the original 8-hole run was calibrated against.",
+  "parcel": {
+    "id": "augusta-13",
+    "schemaVersion": "0.1.0",
+    "par": 5,
+    "corridorHalfWidth": 22,
+    "obHalfWidth": 55,
+    "pieceCap": 6,
+    "tray": [
+      { "shapeId": "green-small", "count": 1 },
+      { "shapeId": "water-creek", "count": 4 },
+      { "shapeId": "bunker-pot", "count": 1 }
+    ]
+  },
+  "design": {
+    "parcelId": "augusta-13",
+    "schemaVersion": "0.1.0",
+    "pieces": [
+      { "shapeId": "water-creek", "x": -32, "y": 160, "rot": 90, "scale": 1 },
+      { "shapeId": "water-creek", "x": -32, "y": 280, "rot": 90, "scale": 1 },
+      { "shapeId": "water-creek", "x": -32, "y": 400, "rot": 90, "scale": 1 },
+      { "shapeId": "water-creek", "x": 0, "y": 455, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": 15, "y": 495, "rot": 0, "scale": 1 },
+      { "shapeId": "green-small", "x": 0, "y": 480, "rot": 0, "scale": 1 }
+    ]
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "id": "cypress-point-16",
+  "course": "Cypress Point",
+  "hole": 16,
+  "par": 3,
+  "yardage": 231,
+  "wind": { "speed": 0, "dirDeg": 0 },
+  "expected": {
+    "favors": ["BOMBER"],
+    "rationale": "The hole is essentially binary at the tee: can this player's peak carry clear roughly 200-230 yards of open ocean at all. Commentary treats the ocean carry itself, not shot-shaping or touch, as the determining variable, and a conservative lay-up route exists for anyone who can't make the carry — meaning outcomes split on raw distance capability, not precision.",
+    "sources": [
+      "Golf Club Atlas, 'Cypress Point'",
+      "All Golf Holes, 'Cypress Point Club Hole 16 — Par 3, 231 Yds'",
+      "Quadrilateral, 'MacKenzie's Careful Embrace Of Cypress Point's Legendary 16th'"
+    ]
+  },
+  "approximations": [
+    "no published scoring average found (private club, no regular tournament stats)",
+    "ocean/rocks approximated as two large water-pond circles blocking the direct line; the real hole's known lay-up corridor (far left, short carry) is left clear as rough rather than water or OB, matching the documented conservative-route option",
+    "peninsula green modeled as a plain small green, not literally surrounded by ocean on three sides"
+  ],
+  "disagreement": "Same root cause as augusta-13. At 231 yards, STRAIGHT's effort is 231/237.5=0.97 (a real, large effort-penalty hit, k~1.49) vs. BOMBER's 231/284.75=0.81 (k~1.17) -- the effort penalty clearly bites STRAIGHT harder here, exactly as the hole's real design intends. But STRAIGHT's base coefficient (0.046) is still ~1.74x smaller than BOMBER's (0.080) before that penalty, so even after applying each archetype's own multiplier, STRAIGHT's effective coefficient (0.046*1.49=0.069) remains below BOMBER's (0.080*1.17=0.094) -- the penalty narrows the gap but does not close it. Margin here is tiny (0.05) and seed-unstable (untrusted), consistent with this being a genuinely close case in the model rather than a confident wrong answer; the hazard placement (short of where either archetype's shot typically lands) likely also under-tests the intended carry-or-layup decision, which is a plausible encoding weakness worth revisiting alongside any future coefficient work, though not corrected here since there's no plausibility signal (no published scoring average) to confirm the geometry itself is at fault.",
+  "parcel": {
+    "id": "cypress-point-16",
+    "schemaVersion": "0.1.0",
+    "par": 3,
+    "corridorHalfWidth": 15,
+    "obHalfWidth": 55,
+    "pieceCap": 5,
+    "tray": [
+      { "shapeId": "green-small", "count": 1 },
+      { "shapeId": "water-pond", "count": 2 },
+      { "shapeId": "bunker-pot", "count": 2 }
+    ]
+  },
+  "design": {
+    "parcelId": "cypress-point-16",
+    "schemaVersion": "0.1.0",
+    "pieces": [
+      { "shapeId": "water-pond", "x": 5, "y": 110, "rot": 0, "scale": 1 },
+      { "shapeId": "water-pond", "x": 10, "y": 170, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": -8, "y": 220, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": 10, "y": 230, "rot": 0, "scale": 1 },
+      { "shapeId": "green-small", "x": 0, "y": 225, "rot": 0, "scale": 1 }
+    ]
+  }
+}

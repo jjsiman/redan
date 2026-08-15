@@ -4,7 +4,11 @@ Zero-runtime-dependency, deterministic golf hole simulator. Per the [project doc
 
 ## Status
 
-First-pass implementation of M0's core sim contract. **Not yet validated against real holes** — the original 8-hole (and target 15+) traced-course validation set was lost along with the HTML/Python prototypes (they lived only in a phone chat, not on disk). This package is currently checked against hand-authored synthetic fixtures only (`test/fixtures/`), which prove the pipeline runs and behaves sensibly, not that it's calibrated correctly. M0 is not gated-closed until real holes are re-traced and run through a CLI validation harness (not yet built) against expert consensus.
+`simVersion 0.2.0`. The fixed four-archetype field (BOMBER/STRAIGHT/SCRAMBLER/TOUCH) has been replaced by a **trait-composed roster** (`traits.ts`), and parcel geometry is now a **bending corridor** (`Parcel.corridor: CorridorStation[]`) with polygon regions, instead of two flat scalars.
+
+Why: the old fixed archetypes failed the real-hole validation harness 16-for-16 in favor of STRAIGHT — its accuracy-driven base dispersion coefficient was structurally ~1.5–1.75× smaller than every other archetype's, a dominant free stat no hole geometry could overturn, since every hole in that set was also a straight corridor with no way to reward anything but accuracy. Fixing one without the other wouldn't have worked. See `traits.ts`'s module doc for the fix (a trait's benefit and cost must land on different `ShotContext`s) and `packages/content/validation/README.md` for the parked 16-hole harness and its numbers — **that harness is suspended, not deleted, and is not a gate for this repo right now** (see `docs/redan-project-doc.md` §4.4/§9's amendment).
+
+The new tuning loop is `scripts/roster-balance.mjs`: runs the roster across a small varied parcel set and several seeds, reports each golfer's win share. Target: no golfer above ~35%. Run it after any change to `TRAIT_TABLE`, `ROSTER`, or a shot-model coefficient.
 
 `packages/schema` (frozen design-serialization format + a first-draft shape parameter table) and `packages/content` (example JSON parcels) now exist — see their READMEs. `Piece`/`Parcel` here remain sim-internal; `packages/schema/src/toSim.ts` is the adapter.
 
@@ -16,7 +20,7 @@ grade(parcel: Parcel, pieces: Piece[], wind: Wind, seed: number): GradeResult
 
 Pure and deterministic: the same four inputs always produce byte-identical output, in the browser, in Node, or on an edge worker. All randomness is drawn from a PRNG seeded by `seed` (`createRng`, mulberry32) — there is no `Math.random`, `Date.now`, `window`, `document`, or `performance` anywhere in `src/`, enforced by `eslint.config.js` (`pnpm lint`), not just convention.
 
-`GradeResult.simVersion` is stamped from `src/version.ts`. Bump it whenever a coefficient changes anywhere in the shot model, archetype table, terrain factors, or metric formulas — the doc is explicit that a coefficient change makes every stored score incomparable.
+`GradeResult.simVersion` is stamped from `src/version.ts`. Bump it whenever a coefficient changes anywhere in the shot model, trait table, terrain factors, or metric formulas — the doc is explicit that a coefficient change makes every stored score incomparable.
 
 ### Coordinate frame
 
@@ -24,35 +28,39 @@ Tee at the origin, green at +x. `x` = yards down the fairway, `y` = lateral yard
 
 ### What's implemented
 
-- Four calibrated archetypes (BOMBER/STRAIGHT/SCRAMBLER/TOUCH) and the full shot model from doc §4.3: full carry, lateral/distance sigma, the effort-penalty kink above 72% of full carry, lie distance/dispersion factors, recovery, putting (1/2/3-putt partition), and the layup formula.
-- **A three-phase shot pipeline** (`src/flight.ts` + `src/route.ts`), not a single statistical draw: (1) *intent* — each archetype's route search picks an aim offset, spin, and power; (2) *flight* — `resolveFlight` turns that intent plus wind and elevation into a deterministic curved arc (a closed-form formula, not a tick-by-tick physics simulation), then the doc-calibrated execution-noise sigma is applied as random miss around that curved endpoint; (3) *roll* — once the carry lands, `resolveRoll` adds ground roll scaled by the lie's firmness and the local slope, and the final lie is re-resolved after roll (a ball can roll from the fairway into a bunker, or off a false front, that it never flew over). Hazards (water/OB) are checked both at the carry landing and again after roll.
-- **A real 2D heightmap** (`Parcel.elevationFeatures`, `terrain.ts#elevationAt2D`/`gradientAt`): the centerline profile (`elevationProfile`) still expresses the hole's overall uphill/downhill grade, uniform across width; `elevationFeatures` layers localized mounds (positive height) or hollows (negative) on top, each with a smooth falloff to zero at its own radius. This is what lets a mound actually redirect a ball sideways during roll, not just change how far it carries. Parcel-authored and fixed — never a player-placed tray piece.
-- **Wind**, wired into `resolveFlight`: a headwind/tailwind component adjusts effective carry, a crosswind component adds lateral drift (scaled toward shots that spend more time in the air).
-- Route search per archetype over four dimensions: aim offset, spin, power (fraction of full carry), and whether to lay up when a shot can't comfortably reach. The power dimension exists because without it every "just advance the ball" shot would swing at exactly 100% effort by construction, which is the exact failure mode the doc's Erin Hills 18 example describes fixing.
-- `used`/`cap` from placed-piece cost, `parOK` from field average vs. designed par, `spread` as the gap between the best- and worst-performing archetype's mean, `routes` as the count of distinct strategies the four archetypes converged on.
+- **A bending corridor** (`Parcel.corridor: CorridorStation[]`, `geom.ts`, `terrain.ts`): the fairway/OB envelope is a polyline of stations, each with its own lateral drift and half-widths, replacing the old flat `corridorHalfWidth`/`obHalfWidth` scalars. `geom.ts` is the generic 2D kernel underneath (`pointInPolygon`, `projectToPolyline`'s arc-length + signed offset, `pointAtStation`, `offsetPolyline`) — pure, no sim domain concepts, safe for a renderer to import too. `RegionShape` gained a `polygon` variant alongside circle/rect. `Parcel.fixedRegions` is new: parcel-authored terrain (trees, native area) the player can't remove or place over and that never counts against the piece budget — what makes a dogleg's inside corner an actual decision.
+- **Trait-composed golfers** (`traits.ts`, replacing `archetypes.ts`): every field golfer shares one flat `BASE_STATS` sheet; all differentiation comes from exactly two traits (`TRAIT_TABLE`), applied as a multiplier layer in `shotModel.ts` scoped to a `ShotContext` (`drive`/`long`/`short`/`recovery`). The doc-calibrated carry/dispersion/putting formulas themselves are untouched.
+- **A corridor-aware route search** (`route.ts`): a fifth search dimension, `aimLine: "corridor" | "green"`, lets an "advance the ball" shot either follow the corridor's bend or cut straight at the green across whatever's in the way. Only searched when the corridor actually bends (`corridorBends`), so a straight hole still costs exactly the old 72 combinations (4 dims × up to 3/2 candidates); a bending one costs double.
+- **A three-phase shot pipeline** (`flight.ts` + `route.ts`), not a single statistical draw: (1) *intent* — route search picks an aim offset, spin, power, and (on a bend) aim line; (2) *flight* — `resolveFlight` turns that intent plus wind and elevation into a deterministic curved arc, then execution-noise sigma is applied as random miss around that curved endpoint; (3) *roll* — ground roll scaled by the lie's firmness and local slope, lie re-resolved after roll. Hazards (water/OB) are checked both at the carry landing and again after roll.
+- **A real 2D heightmap** (`Parcel.elevationFeatures`, `terrain.ts#elevationAt2D`/`gradientAt`): the centerline profile (`elevationProfile`) expresses the hole's overall uphill/downhill grade; `elevationFeatures` layers localized mounds/hollows on top with a smooth falloff, so a mound can redirect a ball sideways during roll, not just change how far it carries. Deliberately parametric rather than a dense grid — see "explicitly deferred" below.
+- **Wind**, wired into `resolveFlight`: headwind/tailwind adjusts effective carry, crosswind adds lateral drift.
+- `used`/`cap` from placed-piece cost (fixed regions excluded), `parOK` from field average vs. designed par, `spread` as best-vs-worst mean, `contested` (new) as the gap between the best and second-best mean — with 7 golfers instead of 4, `spread` alone widens mechanically, so `contested` is what actually answers "is more than one kind of player rewarded here," `routes` as the count of distinct strategies the field converged on.
 
 ### Calibration status — read before touching coefficients
 
-Two different tiers, and it matters which one a number is in:
+Three different tiers now, and it matters which one a number is in:
 
-- **Doc-calibrated** (`archetypes.ts`, `shotModel.ts`'s carry/dispersion/putting formulas): transcribed from doc §4.2/4.3, load-bearing, matched expert consensus on 6/8 real holes in the original calibration run. Don't change without re-running a validation set.
-- **New and uncalibrated** (everything in `flight.ts`, plus `terrain.ts`'s elevation-feature falloff, `gradientAt`, and `ROLL_FACTORS`): curve strength, wind's yards-per-mph coefficients, roll distance per lie, slope-steering strength. None of this survived the doc reconstruction — it's invented for this pass, each flagged inline as first-pass. There is currently no real validation set to check any of it against (see Status above), so "uncalibrated" is the honest, current state of the whole project, not just this addition.
+- **Doc-calibrated** (`shotModel.ts`'s carry/dispersion/putting formulas): transcribed from doc §4.3, load-bearing, untouched by the trait rework — traits multiply their outputs, never edit them.
+- **New in the trait/geometry rework, measured not validated** (`traits.ts`'s `TRAIT_TABLE`/`BASE_STATS`, `route.ts`'s `aimLine`/aggression objective): tuned against `scripts/roster-balance.mjs`'s win-share report across a small synthetic parcel set, not against real holes — the real-hole harness is parked (see Status above). Expect these numbers to move.
+- **New and uncalibrated, pre-dating this pass** (everything in `flight.ts`, plus `terrain.ts`'s elevation-feature falloff, `gradientAt`, and `ROLL_FACTORS`): curve strength, wind's yards-per-mph coefficients, roll distance per lie, slope-steering strength. None of this survived the doc reconstruction.
 
 ### What's explicitly deferred (not in this pass)
 
-- **Fairway generator + rough bands** — terrain here is explicit regions (a fixed corridor + placed-piece footprints), not auto-derived from a fairway shape.
-- **CLI validation harness + real-hole geometry** — no traced courses, no report format, no gate check yet.
-- **Renderer surface interface** — out of scope for the sim package by definition.
-- **A dense/authorable heightmap grid** — `elevationFeatures` is deliberately parametric (a short list of mounds/hollows), not a per-cell grid, so it stays hand-authorable in JSON without an editor. A future terrain-generation tool could still emit a grid; the sim doesn't need one to support 2D terrain.
+- **Fairway generator** — the corridor is still hand-authored per parcel (a polyline of stations), not auto-derived from freeform terrain.
+- **Renderer surface interface** — out of scope for the sim package by definition, though `geom.ts` is written to be renderer-safe.
+- **A dense/authorable heightmap grid** — `elevationFeatures` stays deliberately parametric so terrain remains hand-authorable in JSON without an editor.
+- **Branching/split corridors** — the corridor is one polyline; there's no way to express two genuinely alternate routes to the green yet.
 
 ### Known simplifications worth revisiting
 
 - The reach-in-two decision (`REACH_THRESHOLD` / `LAYUP_ZONE_LIMIT` in `route.ts`) is a first-pass heuristic, not the doc's dedicated "par-5 reach-in-two branch" deliverable.
-- Flight is a closed-form curved arc, not a physics/bounce simulation — no launch angle, no apex, no Magnus-effect spin curve. Roll is a single closed-form displacement from local slope, not a rolling/decelerating simulation.
-- `resolveFlight`'s elevation adjustment is a one-step approximation (evaluated at the wind/curve-only provisional endpoint, not solved iteratively against the final elevation-adjusted point).
-- Route search is a 4-dimensional grid (aim × spin × power × lay-up), trimmed to ~3 candidates on aim/spin to keep it tractable (72 combinations vs. the previous 40) — untested against the sub-500ms M1 performance target at production trial counts.
+- Flight is a closed-form curved arc, not a physics/bounce simulation. Roll is a single closed-form displacement from local slope.
+- `resolveFlight`'s elevation adjustment is a one-step approximation, not an iterative solve.
+- A shot's `ShotContext` (drive/long/short/recovery — see `route.ts#shotContext`) is inferred from which route-search branch fired and the current lie, not from anything a real golfer would consciously label — a reasonable first pass, not validated against how it feels in practice.
+- The branch-selection full carry (`route.ts`'s `provisionalFull`) is computed under a fixed `"long"` context before the real context is known, so a golfer whose `carryMul` varies sharply between contexts (e.g. `long`'s drive-only bonus) can occasionally misjudge the reach/lay-up threshold by a small margin.
 - A design must place exactly one `lieType: "green"` piece; `grade()` throws otherwise. Multiple green pieces aren't merged.
-- Metric formulas (`field`, `spread`, `sd`, `routes`, `parOK`'s tolerance) are reconstructed from doc §5's prose and example sentences, not from the lost full per-hole validation table — treat them as a reasonable first guess, not settled.
+- Metric formulas (`field`, `spread`, `sd`, `routes`, `contested`, `parOK`'s tolerance) and the doc §5 star thresholds are a reasonable first guess, not settled — `contested` and the wider `spread` range from a 7-golfer field haven't been re-checked against those thresholds yet.
+- A piece placed beyond the corridor's arc-length extent (or its lateral OB width) resolves OB — an authoring constraint parcels must satisfy (the corridor must extend at least as far as the green), the same class of constraint the old scalar model had for the lateral direction.
 
 ## Development
 
@@ -62,4 +70,5 @@ pnpm --filter @redan/sim run build      # tsc -b
 pnpm --filter @redan/sim run typecheck  # tsc over src + test (not part of build — tests aren't shipped)
 pnpm --filter @redan/sim run test       # typecheck, then vitest run
 pnpm --filter @redan/sim run lint       # eslint (includes the portability checks)
+node packages/sim/scripts/roster-balance.mjs   # win-share report across a small parcel set (run after tuning traits)
 ```

@@ -1,0 +1,24 @@
+{
+  "name": "@redan/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Playable prototype: portrait-canvas parcel editor over @redan/sim, per doc 8.1/8.2. Vanilla TS — no framework, no canvas library, so the renderer stays a one-file port away from react-native-skia (doc 8.2).",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "pnpm run typecheck && vite build",
+    "typecheck": "tsc -p tsconfig.json",
+    "preview": "vite preview",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@redan/schema": "workspace:*",
+    "@redan/sim": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "eslint": "^9.14.0",
+    "typescript-eslint": "^8.13.0"
+  }
+}

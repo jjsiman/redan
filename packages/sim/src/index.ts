@@ -1,12 +1,14 @@
 export { grade } from "./grade.js";
 export { createRng, randNormal, randNormalMV } from "./rng.js";
 export type { Rng } from "./rng.js";
-export { ARCHETYPES, ARCHETYPE_NAMES, FIELD_SKILL } from "./archetypes.js";
+export { ROSTER, ROSTER_IDS, TRAIT_TABLE, BASE_STATS, FIELD_SKILL, resolveTraits } from "./traits.js";
 export { SIM_VERSION } from "./version.js";
 export {
   fullCarry,
   shotDispersion,
   effectiveLieFactors,
+  effectiveRecovery,
+  effectiveTouch,
   layupTarget,
   resolvePutts,
 } from "./shotModel.js";
@@ -14,21 +16,41 @@ export {
   lieAt,
   lieFactors,
   findGreen,
+  compileCorridor,
+  straightCorridor,
+  corridorBends,
   elevationAt,
   elevationAt2D,
   gradientAt,
   playsLikeDelta,
   ROLL_FACTORS,
 } from "./terrain.js";
+export type { CompiledCorridor, TerrainQuery } from "./terrain.js";
 export { resolveFlight, resolveRoll } from "./flight.js";
 export type { FlightResult } from "./flight.js";
+export {
+  pointInPolygon,
+  polygonAabb,
+  aabbContains,
+  polylineLength,
+  projectToPolyline,
+  pointAtStation,
+  offsetPolyline,
+} from "./geom.js";
+export type { Aabb, PolylineProjection } from "./geom.js";
+export { searchRoute } from "./route.js";
+export type { RoundResult, RouteSearchResult } from "./route.js";
+export { describeVerdict, describeResultFromGolfers } from "./verdict.js";
+export type { Verdict } from "./verdict.js";
 
 export type {
-  ArchetypeName,
-  ArchetypeStats,
-  ArchetypeResult,
+  CorridorStation,
   ElevationFeature,
   ElevationSample,
+  Golfer,
+  GolferId,
+  GolferResult,
+  GolferStats,
   GradeMetrics,
   GradeResult,
   LieType,
@@ -37,7 +59,9 @@ export type {
   RegionShape,
   Route,
   Shot,
+  ShotContext,
   ShotPath,
+  TraitEffects,
   Vec2,
   Wind,
 } from "./types.js";

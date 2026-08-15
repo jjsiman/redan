@@ -1,0 +1,21 @@
+{
+  "id": "02-dogleg-left",
+  "schemaVersion": "0.2.0",
+  "par": 4,
+  "corridor": [
+    { "y": 0, "cx": 0, "halfWidth": 24, "obHalfWidth": 48 },
+    { "y": 110, "cx": 0, "halfWidth": 24, "obHalfWidth": 48 },
+    { "y": 190, "cx": -55, "halfWidth": 20, "obHalfWidth": 44 },
+    { "y": 280, "cx": -55, "halfWidth": 20, "obHalfWidth": 44 },
+    { "y": 340, "cx": 0, "halfWidth": 22, "obHalfWidth": 44 },
+    { "y": 430, "cx": 0, "halfWidth": 22, "obHalfWidth": 44 }
+  ],
+  "fixedRegions": [
+    { "shapeId": "trees", "x": 0, "y": 235, "rot": 90, "scale": 1 }
+  ],
+  "pieceCap": 2,
+  "tray": [
+    { "shapeId": "green-large", "count": 1 },
+    { "shapeId": "bunker-pot", "count": 1 }
+  ]
+}

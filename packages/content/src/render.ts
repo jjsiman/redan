@@ -1,5 +1,6 @@
-import type { Design, Parcel, RegionShape } from "@redan/schema";
-import type { ArchetypeName, GradeResult, Shot, Vec2 } from "@redan/sim";
+import type { Design, Parcel, PortraitCorridorStation, RegionShape } from "@redan/schema";
+import type { GolferId, GradeResult, Shot, Vec2 } from "@redan/sim";
+import { describeResultFromGolfers, offsetPolyline } from "@redan/sim";
 import { SHAPE_TABLE } from "@redan/schema";
 
 /**
@@ -7,64 +8,86 @@ import { SHAPE_TABLE } from "@redan/schema";
  * an inline SVG hole diagram, plus doc-5-style plain-language feedback. This
  * is NOT the doc's "renderer surface interface" deliverable (the tiny
  * fillCell/strokePath/drawText abstraction the real game renderer will sit
- * behind) — it's a standalone tool for seeing a hole while packages/sim and
- * packages/schema are still being built out.
+ * behind, built in apps/web) — it's a standalone tool for seeing a hole
+ * while packages/sim and packages/schema are still being built out.
  */
 
-const MARGIN_X = 15;
-const MARGIN_TOP = 20;
-const MARGIN_BOTTOM = 15;
+const MARGIN = 18;
 
 /**
- * Fixed archetype -> {color slot, dash pattern, marker shape} mapping.
- * Colors are the dataviz skill's default categorical slots 1-4 (blue/orange/
- * aqua/yellow) for their recognizability, but that 4th pairing (orange vs.
- * yellow) fails the palette's own all-pairs CVD/contrast validator — see
- * `node scripts/validate_palette.js "#2a78d6,#eb6834,#1baf7a,#eda100" --pairs all`.
- * Traces are lines that can cross anywhere on the diagram, not a fixed
- * legend order, so this can't lean on "adjacent pairs only." The fix is the
- * one the skill prescribes for a failing pair: secondary encoding — each
- * archetype also gets a distinct dash pattern and marker shape, and every
- * trace is drawn with a surface-color halo stroke so it reads against
- * whatever terrain color it crosses. Identity never depends on hue alone.
+ * Fixed golfer -> {color slot, dash pattern, marker shape} mapping, keyed by
+ * traits.ts's ROSTER ids (not imported directly — this file only needs the
+ * style, not the roster itself, so any golfer id not listed here just falls
+ * back to a neutral gray rather than failing to render).
+ *
+ * Colors loosely follow the dataviz skill's categorical approach (distinct
+ * hues, not adjacent), but with 7 slots instead of 4 there are more
+ * near-neighbors than a validated 4-color palette guarantees — dash pattern
+ * and marker shape are the real disambiguators here, same as before. Every
+ * trace also gets a surface-color halo stroke so it reads against whatever
+ * terrain color it crosses; identity never depends on hue alone.
  */
-const ARCHETYPE_STYLE: Record<
-  ArchetypeName,
+const GOLFER_STYLE: Record<
+  string,
   { varName: string; dash: string; marker: "circle" | "square" | "triangle" | "diamond" }
 > = {
-  BOMBER: { varName: "--arc-bomber", dash: "none", marker: "circle" },
-  STRAIGHT: { varName: "--arc-straight", dash: "6 3", marker: "square" },
-  SCRAMBLER: { varName: "--arc-scrambler", dash: "1 3", marker: "triangle" },
-  TOUCH: { varName: "--arc-touch", dash: "8 3 2 3", marker: "diamond" },
+  basher: { varName: "--arc-basher", dash: "none", marker: "circle" },
+  plodder: { varName: "--arc-plodder", dash: "6 3", marker: "square" },
+  "wedge-artist": { varName: "--arc-wedge-artist", dash: "1 3", marker: "triangle" },
+  houdini: { varName: "--arc-houdini", dash: "8 3 2 3", marker: "diamond" },
+  drawer: { varName: "--arc-drawer", dash: "3 6", marker: "circle" },
+  fader: { varName: "--arc-fader", dash: "10 2 2 2", marker: "square" },
+  "iron-man": { varName: "--arc-iron-man", dash: "2 2", marker: "triangle" },
 };
+const FALLBACK_STYLE = { varName: "--ink-muted", dash: "4 2", marker: "circle" as const };
 
-function svgX(portraitX: number, width: number): number {
-  return portraitX + width / 2;
+function styleFor(golfer: GolferId) {
+  return GOLFER_STYLE[golfer] ?? FALLBACK_STYLE;
 }
 
-function svgY(portraitY: number, height: number): number {
-  return height - MARGIN_BOTTOM - portraitY;
+interface Bounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+function expandBounds(b: Bounds, x: number, y: number, pad = 0): void {
+  if (x - pad < b.minX) b.minX = x - pad;
+  if (x + pad > b.maxX) b.maxX = x + pad;
+  if (y - pad < b.minY) b.minY = y - pad;
+  if (y + pad > b.maxY) b.maxY = y + pad;
 }
 
 function footprintExtent(shape: RegionShape, scale: number): number {
   if (shape.kind === "circle") return shape.radius * scale;
-  return Math.max(shape.halfLength, shape.halfWidth) * scale;
+  if (shape.kind === "rect") return Math.max(shape.halfLength, shape.halfWidth) * scale;
+  return Math.max(...shape.points.map((p) => Math.hypot(p.x, p.y))) * scale;
 }
 
-function holeLength(parcel: Parcel, design: Design): number {
-  let max = 120;
-  for (const piece of design.pieces) {
+function corridorPoints(corridor: PortraitCorridorStation[]): Vec2[] {
+  return corridor.map((s) => ({ x: s.cx, y: s.y }));
+}
+
+function computeBounds(parcel: Parcel, design: Design): Bounds {
+  const b: Bounds = { minX: 0, minY: 0, maxX: 0, maxY: 120 };
+  const pts = corridorPoints(parcel.corridor);
+  const obWidths = parcel.corridor.map((s) => s.obHalfWidth);
+  const { left, right } = offsetPolyline(pts, obWidths);
+  for (const p of [...left, ...right]) expandBounds(b, p.x, p.y);
+
+  for (const piece of [...design.pieces, ...(parcel.fixedRegions ?? [])]) {
     const def = SHAPE_TABLE[piece.shapeId];
     const extent = def ? footprintExtent(def.footprint, piece.scale) : 10;
-    max = Math.max(max, piece.y + extent);
+    expandBounds(b, piece.x, piece.y, extent);
   }
   for (const feature of parcel.elevationFeatures ?? []) {
-    max = Math.max(max, feature.y + feature.radius);
+    expandBounds(b, feature.x, feature.y, feature.radius);
   }
-  return max;
+  return b;
 }
 
-function markerPath(shape: (typeof ARCHETYPE_STYLE)[ArchetypeName]["marker"], cx: number, cy: number, r: number): string {
+function markerPath(shape: "circle" | "square" | "triangle" | "diamond", cx: number, cy: number, r: number): string {
   switch (shape) {
     case "circle":
       return `<circle cx="${cx}" cy="${cy}" r="${r}" />`;
@@ -82,27 +105,61 @@ function toPortraitPoint(sim: Vec2): Vec2 {
   return { x: -sim.y, y: sim.x };
 }
 
-function renderPiece(piece: Design["pieces"][number], width: number, height: number): string {
+interface Frame {
+  bounds: Bounds;
+  width: number;
+  height: number;
+}
+
+function makeFrame(bounds: Bounds): Frame {
+  return {
+    bounds,
+    width: bounds.maxX - bounds.minX + MARGIN * 2,
+    height: bounds.maxY - bounds.minY + MARGIN * 2,
+  };
+}
+
+function svgX(frame: Frame, portraitX: number): number {
+  return portraitX - frame.bounds.minX + MARGIN;
+}
+
+function svgY(frame: Frame, portraitY: number): number {
+  return frame.height - MARGIN - (portraitY - frame.bounds.minY);
+}
+
+function svgPolygon(frame: Frame, points: Vec2[]): string {
+  return points.map((p) => `${svgX(frame, p.x)},${svgY(frame, p.y)}`).join(" ");
+}
+
+function renderPiece(frame: Frame, piece: Design["pieces"][number], fixed: boolean): string {
   const def = SHAPE_TABLE[piece.shapeId];
   if (!def) return "";
-  const cx = svgX(piece.x, width);
-  const cy = svgY(piece.y, height);
+  const cx = svgX(frame, piece.x);
+  const cy = svgY(frame, piece.y);
   const fill = `var(--terrain-${def.lieType})`;
+  // Fixed (parcel-authored, un-removable) regions get a hatch-like dashed
+  // outline so they read as different in kind from player-placed pieces.
+  const strokeDasharray = fixed ? `2 1.5` : `none`;
 
   if (def.footprint.kind === "circle") {
     const r = def.footprint.radius * piece.scale;
-    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="var(--diagram-line)" stroke-width="0.6" />`;
+    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="var(--diagram-line)" stroke-width="0.6" stroke-dasharray="${strokeDasharray}" />`;
   }
-  const hl = def.footprint.halfLength * piece.scale;
-  const hw = def.footprint.halfWidth * piece.scale;
-  // Rect rotation here mirrors @redan/schema's portrait rot convention
-  // (local +x at rot=0), but only circular hazards exist in content today —
-  // this path hasn't been cross-checked visually against a real placement.
-  return `<rect x="${cx - hl}" y="${cy - hw}" width="${hl * 2}" height="${hw * 2}" fill="${fill}" stroke="var(--diagram-line)" stroke-width="0.6" transform="rotate(${-piece.rot} ${cx} ${cy})" />`;
+  if (def.footprint.kind === "rect") {
+    const hl = def.footprint.halfLength * piece.scale;
+    const hw = def.footprint.halfWidth * piece.scale;
+    return `<rect x="${cx - hl}" y="${cy - hw}" width="${hl * 2}" height="${hw * 2}" fill="${fill}" stroke="var(--diagram-line)" stroke-width="0.6" stroke-dasharray="${strokeDasharray}" transform="rotate(${-piece.rot} ${cx} ${cy})" />`;
+  }
+  // Matches the rect case above: local coordinates map directly (no flip —
+  // footprint points are in the piece's own local frame, not the outer
+  // portrait frame), and rot is applied as an SVG transform, not baked into
+  // the points, for the same reason the rect case uses `transform=`.
+  const pts = def.footprint.points.map((p) => `${cx + p.x * piece.scale},${cy + p.y * piece.scale}`).join(" ");
+  return `<polygon points="${pts}" fill="${fill}" stroke="var(--diagram-line)" stroke-width="0.6" stroke-dasharray="${strokeDasharray}" transform="rotate(${-piece.rot} ${cx} ${cy})" />`;
 }
 
-function svgPolyline(points: Vec2[], width: number, height: number): string {
-  return points.map((p) => `${svgX(p.x, width)},${svgY(p.y, height)}`).join(" ");
+function svgPolyline(frame: Frame, points: Vec2[]): string {
+  return points.map((p) => `${svgX(frame, p.x)},${svgY(frame, p.y)}`).join(" ");
 }
 
 /**
@@ -112,16 +169,14 @@ function svgPolyline(points: Vec2[], width: number, height: number): string {
  * straight segment to `shot.to` when `path` is absent.
  *
  * A penalty shot (water/OB) is drawn in two visually distinct pieces, not
- * one continuous line: the attempted flight (faded, in the archetype's
- * color) out to wherever it actually landed, then a short muted dotted
- * connector to `shot.to` — which for OB is stroke-and-distance, i.e. back
- * at `shot.from`. Joining those into one solid line reads as a nonsensical
- * zigzag (the ball appearing to fly out toward a hazard and instantly snap
- * back); drawing the reset as its own faint segment tells the honest story
- * instead — this shot was attempted, then replayed.
+ * one continuous line: the attempted flight (faded, in the golfer's color)
+ * out to wherever it actually landed, then a short muted dotted connector to
+ * `shot.to` — which for OB is stroke-and-distance, i.e. back at `shot.from`.
+ * Joining those into one solid line reads as a nonsensical zigzag; drawing
+ * the reset as its own faint segment tells the honest story instead.
  */
-function renderTrace(archetype: ArchetypeName, shots: Shot[], width: number, height: number): string {
-  const style = ARCHETYPE_STYLE[archetype];
+function renderTrace(frame: Frame, golfer: GolferId, shots: Shot[]): string {
+  const style = styleFor(golfer);
   const colorVar = `var(${style.varName})`;
   const parts: string[] = [];
 
@@ -130,24 +185,24 @@ function renderTrace(archetype: ArchetypeName, shots: Shot[], width: number, hei
     const landing = toPortraitPoint(shot.to);
 
     if (shot.penaltyStrokes > 0) {
-      const flightSvg = svgPolyline(flight, width, height);
+      const flightSvg = svgPolyline(frame, flight);
       parts.push(`<polyline points="${flightSvg}" fill="none" stroke="var(--surface)" stroke-width="3.2" stroke-linejoin="round" />`);
       parts.push(
         `<polyline points="${flightSvg}" fill="none" stroke="${colorVar}" stroke-width="1.4" stroke-dasharray="${style.dash}" stroke-linejoin="round" stroke-opacity="0.5" />`,
       );
       const last = flight[flight.length - 1]!;
-      const dropSvg = svgPolyline([last, landing], width, height);
+      const dropSvg = svgPolyline(frame, [last, landing]);
       parts.push(`<polyline points="${dropSvg}" fill="none" stroke="var(--diagram-line)" stroke-width="0.8" stroke-dasharray="1 2" />`);
     } else {
-      const svgPoints = svgPolyline([...flight, landing], width, height);
+      const svgPoints = svgPolyline(frame, [...flight, landing]);
       parts.push(`<polyline points="${svgPoints}" fill="none" stroke="var(--surface)" stroke-width="3.2" stroke-linejoin="round" />`);
       parts.push(
         `<polyline points="${svgPoints}" fill="none" stroke="${colorVar}" stroke-width="1.4" stroke-dasharray="${style.dash}" stroke-linejoin="round" />`,
       );
     }
 
-    const cx = svgX(landing.x, width);
-    const cy = svgY(landing.y, height);
+    const cx = svgX(frame, landing.x);
+    const cy = svgY(frame, landing.y);
     parts.push(`<g fill="${colorVar}" stroke="var(--surface)" stroke-width="0.8">${markerPath(style.marker, cx, cy, 2.4)}</g>`);
   }
 
@@ -159,14 +214,14 @@ function renderTrace(archetype: ArchetypeName, shots: Shot[], width: number, hei
  * center — a cheap contour-map stand-in so 2D terrain is visible in the
  * diagram, not just mechanically present in the sim.
  */
-function renderElevationFeatures(parcel: Parcel, width: number, height: number): string {
+function renderElevationFeatures(frame: Frame, parcel: Parcel): string {
   const features = parcel.elevationFeatures;
   if (!features || features.length === 0) return "";
 
   return features
     .map((f) => {
-      const cx = svgX(f.x, width);
-      const cy = svgY(f.y, height);
+      const cx = svgX(frame, f.x);
+      const cy = svgY(frame, f.y);
       const colorVar = f.height >= 0 ? "var(--terrain-mound)" : "var(--terrain-hollow)";
       return [1, 0.66, 0.33]
         .map((frac, i) => {
@@ -180,39 +235,41 @@ function renderElevationFeatures(parcel: Parcel, width: number, height: number):
 }
 
 export function renderHoleSvg(parcel: Parcel, design: Design, result: GradeResult): string {
-  const width = parcel.obHalfWidth * 2 + MARGIN_X * 2;
-  const length = holeLength(parcel, design);
-  const height = length + MARGIN_TOP + MARGIN_BOTTOM;
+  const bounds = computeBounds(parcel, design);
+  const frame = makeFrame(bounds);
 
-  const fairwayX0 = svgX(-parcel.corridorHalfWidth, width);
-  const fairwayW = parcel.corridorHalfWidth * 2;
-  const fairwayY = svgY(length, height);
-  const fairwayH = svgY(0, height) - fairwayY;
+  const centerline = corridorPoints(parcel.corridor);
+  const fairwayHalfWidths = parcel.corridor.map((s) => s.halfWidth);
+  const obHalfWidths = parcel.corridor.map((s) => s.obHalfWidth);
+  const fairwayRibbon = offsetPolyline(centerline, fairwayHalfWidths);
+  const obRibbon = offsetPolyline(centerline, obHalfWidths);
 
-  const obLeft = svgX(-parcel.obHalfWidth, width);
-  const obRight = svgX(parcel.obHalfWidth, width);
-  const obTop = svgY(length, height);
-  const obBottom = svgY(0, height);
+  const fairwayPolygon = svgPolygon(frame, [...fairwayRibbon.left, ...fairwayRibbon.right.slice().reverse()]);
+  const obLeftLine = svgPolyline(frame, obRibbon.left);
+  const obRightLine = svgPolyline(frame, obRibbon.right);
 
-  const teeX = svgX(0, width);
-  const teeY = svgY(0, height);
+  const tee = centerline[0] ?? { x: 0, y: 0 };
+  const teeX = svgX(frame, tee.x);
+  const teeY = svgY(frame, tee.y);
 
-  const elevationFeatures = renderElevationFeatures(parcel, width, height);
-  const pieces = design.pieces.map((p) => renderPiece(p, width, height)).join("\n");
-  const traces = result.traces.map((t) => renderTrace(t.archetype, t.shots, width, height)).join("\n");
+  const elevationFeatures = renderElevationFeatures(frame, parcel);
+  const fixedRegions = (parcel.fixedRegions ?? []).map((p) => renderPiece(frame, p, true)).join("\n");
+  const pieces = design.pieces.map((p) => renderPiece(frame, p, false)).join("\n");
+  const traces = result.traces.map((t) => renderTrace(frame, t.golfer, t.shots)).join("\n");
 
   return `<figure class="hole-figure">
-  <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Portrait diagram of parcel ${parcel.id}: tee at bottom, green near top, with each archetype's played route overlaid.">
-    <rect x="0" y="0" width="${width}" height="${height}" fill="var(--terrain-rough)" />
-    <line x1="${obLeft}" y1="${obTop}" x2="${obLeft}" y2="${obBottom}" stroke="var(--ob-line)" stroke-width="0.7" stroke-dasharray="2 2" />
-    <line x1="${obRight}" y1="${obTop}" x2="${obRight}" y2="${obBottom}" stroke="var(--ob-line)" stroke-width="0.7" stroke-dasharray="2 2" />
-    <rect x="${fairwayX0}" y="${fairwayY}" width="${fairwayW}" height="${fairwayH}" fill="var(--terrain-fairway)" />
+  <svg viewBox="0 0 ${frame.width} ${frame.height}" role="img" aria-label="Portrait diagram of parcel ${parcel.id}: tee at bottom, green near top, with each golfer's played route overlaid.">
+    <rect x="0" y="0" width="${frame.width}" height="${frame.height}" fill="var(--terrain-rough)" />
+    <polyline points="${obLeftLine}" fill="none" stroke="var(--ob-line)" stroke-width="0.7" stroke-dasharray="2 2" />
+    <polyline points="${obRightLine}" fill="none" stroke="var(--ob-line)" stroke-width="0.7" stroke-dasharray="2 2" />
+    <polygon points="${fairwayPolygon}" fill="var(--terrain-fairway)" />
     ${elevationFeatures}
+    ${fixedRegions}
     ${pieces}
     <polygon points="${teeX - 2.2},${teeY} ${teeX + 2.2},${teeY} ${teeX},${teeY - 3.6}" fill="var(--diagram-tee)" />
     ${traces}
   </svg>
-  <figcaption>${parcel.id} — tee at bottom, green at top. Each line is one archetype's actual curved route through this design; shaded rings are mounds/hollows.</figcaption>
+  <figcaption>${parcel.id} — tee at bottom, green at top. Each line is one golfer's actual curved route through this design; dashed-outline shapes are fixed (un-removable) terrain; shaded rings are mounds/hollows.</figcaption>
 </figure>`;
 }
 
@@ -242,56 +299,14 @@ export function renderElevationSvg(parcel: Parcel): string | null {
 </figure>`;
 }
 
-export interface Verdict {
-  stars: 0 | 1 | 2 | 3;
-  sentences: string[];
-}
+export type { Verdict } from "@redan/sim";
 
 /**
  * Doc 5's star gates and coaching-sentence idea, applied to a GradeResult.
- * The four bracketed examples in the doc are reproduced closely; everything
- * else here (the "good" cases, the exact wording) is my own composition in
- * the same voice, not verbatim from the doc — a first pass, not settled.
+ * The logic itself now lives in `@redan/sim`'s `verdict.ts`, shared with
+ * `apps/web`'s editor so the two never drift on what a star means — this
+ * stays a thin `Parcel`-shaped wrapper for this package's existing callers.
  */
-export function describeResult(parcel: Parcel, result: GradeResult): Verdict {
-  const { field, spread, sd, routes, used, cap, parOK } = result.metrics;
-  const sentences: string[] = [];
-
-  sentences.push(`Plays as a par ${parcel.par} — field average ${field.toFixed(2)}.`);
-
-  const means = Object.entries(result.archetypes) as [ArchetypeName, { mean: number }][];
-  const best = means.reduce((a, b) => (b[1].mean < a[1].mean ? b : a));
-  const worst = means.reduce((a, b) => (b[1].mean > a[1].mean ? b : a));
-
-  let stars: 0 | 1 | 2 | 3 = 0;
-  if (parOK && spread < 0.85) {
-    stars = 1;
-    if (routes > 1 && sd > 0.62 && sd < 1.75) {
-      stars = 2;
-      if (used < cap) stars = 3;
-    }
-  }
-
-  if (spread >= 0.85) {
-    sentences.push(
-      `${best[0]} beat ${worst[0]} by ${spread.toFixed(2)}. One kind of player is being handed the hole.`,
-    );
-  } else if (routes <= 1) {
-    sentences.push("Every archetype played the identical line. There is no decision here.");
-  }
-
-  if (sd < 0.62) {
-    sentences.push(`Scores barely varied (σ ${sd.toFixed(2)}). Nothing is at stake.`);
-  } else if (sd > 1.75) {
-    sentences.push(`Scores were everywhere (σ ${sd.toFixed(2)}). It's a lottery, not a test.`);
-  } else {
-    sentences.push(`Real spread (σ ${sd.toFixed(2)}) — skill is rewarded.`);
-  }
-
-  if (stars === 3) {
-    const unspent = cap - used;
-    sentences.push(`${unspent} piece${unspent === 1 ? "" : "s"} unspent — the land did the work.`);
-  }
-
-  return { stars, sentences };
+export function describeResult(parcel: Parcel, result: GradeResult) {
+  return describeResultFromGolfers(parcel.par, result.metrics, result.golfers);
 }

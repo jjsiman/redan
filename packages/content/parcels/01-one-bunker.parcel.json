@@ -1,9 +1,11 @@
 {
   "id": "01-one-bunker",
-  "schemaVersion": "0.1.0",
+  "schemaVersion": "0.2.0",
   "par": 4,
-  "corridorHalfWidth": 22,
-  "obHalfWidth": 42,
+  "corridor": [
+    { "y": 0, "cx": 0, "halfWidth": 22, "obHalfWidth": 42 },
+    { "y": 420, "cx": 0, "halfWidth": 22, "obHalfWidth": 42 }
+  ],
   "pieceCap": 2,
   "tray": [
     { "shapeId": "green-large", "count": 1 },

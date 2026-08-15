@@ -10,6 +10,7 @@ export type {
   ElevationFeature,
   Parcel,
   PlacedShape,
+  PortraitCorridorStation,
   PortraitVec2,
   RegionShape,
   TrayEntry,

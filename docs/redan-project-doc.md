@@ -73,6 +73,10 @@ Each archetype independently searches a route space and plays its own best line.
 
 The grading question becomes *does this hole reward more than one kind of player*, which is both a better definition of good architecture and directly measurable.
 
+**2026-08-15 amendment — archetypes replaced by trait-composed golfers.** The four fixed builds above are retired. §4.4's re-validation found STRAIGHT winning or tying all 16 real holes in the current set — not because any one hole was mis-designed, but because STRAIGHT's accuracy-driven dispersion coefficient was a structurally dominant free stat (see §4.4), and every hole in that set was also a straight corridor (§6.1's amendment) with no geometry able to reward anything else. Fixing one without the other wouldn't have worked.
+
+The field is now built from traits (`packages/sim/src/traits.ts`): every golfer shares one flat stat sheet, and all differentiation comes from exactly two traits per golfer, each a small multiplier on the §4.3 formulas below (never edited directly), scoped to *which kind of shot* it applies to (a tee shot, a full approach, a green attack/layup, or a recovery from trouble). The rule that replaces the old stat-budget table: a trait's benefit and its cost must land on different shot kinds, so no trait — and no golfer — is simply better everywhere. Balance is measured against a small varied parcel set (`packages/sim/scripts/roster-balance.mjs`'s win-share report — target no golfer above ~35%), not asserted from a stat sheet the way the 2.40-point budget above was. This section's archetype table and stat budget are kept above for history; the player's Play-mode (M4) stat sheet should be read as "pick two traits," not "allocate four numbers under a cap."
+
 ### 4.3 Shot model (current calibrated values)
 
 ```
@@ -108,11 +112,15 @@ Water = one penalty stroke, drop short of the hazard. OB = stroke and distance (
 
 ### 4.4 Calibration status
 
-Validation set of eight real holes, geometry extracted from traced course polygons (`golfMapsR`, 19 courses, hand-traced from Google Earth/OSM).
-
-Six of eight match expert consensus on archetype bias. Augusta 13 → BOMBER by 0.55. Pebble 8 → STRAIGHT. Cypress Point 16 → BOMBER. Oakland Hills → STRAIGHT. The two short par 3s put STRAIGHT and TOUCH within 0.01 of each other, which is the right answer for holes where power is worthless. Erin Hills 18 remains stubborn — at 644 yards nobody gets home in two, so distance genuinely stops compounding; this may be the model being right and the expectation being wrong. **[thin]** The full eight-row table with per-hole means needs regenerating from `run.py`.
+**Original run (lost, pre-2026 prototypes).** Validation set of eight real holes, geometry extracted from traced course polygons (`golfMapsR`, 19 courses, hand-traced from Google Earth/OSM). Six of eight matched expert consensus on archetype bias. Augusta 13 → BOMBER by 0.55. Pebble 8 → STRAIGHT. Cypress Point 16 → BOMBER. Oakland Hills → STRAIGHT. The two short par 3s put STRAIGHT and TOUCH within 0.01 of each other, which is the right answer for holes where power is worthless. Erin Hills 18 remained stubborn — at 644 yards nobody gets home in two, so distance genuinely stops compounding; this may have been the model being right and the expectation being wrong. The full eight-row table with per-hole means did not survive the doc reconstruction, and neither did the geometry or the Python harness (`terrain.py`/`sim.py`/`run.py`) that produced this result — it cannot be re-run or independently checked, only cited.
 
 The point of the validation set, in one example: a hand-tuned scoring function would have shipped with "accuracy always wins" baked in, and every hole players designed would have converged on the same narrow shape.
+
+**2026-08-15 re-validation (current).** `packages/content`'s validation harness (`pnpm --filter @redan/content run validate`) re-ran this idea from scratch against 16 real holes, hand-encoded in the shipping portrait Parcel/Design format from published yardages and architecture commentary (not re-traced geometry — the original method is unrecoverable), each with a pre-registered expected archetype bias and citations (`packages/content/validation/*.hole.json`). Result: **6 of 16 agree**, short of the M0 gate (15+ holes, 12 agree). Every disagreement carries a written explanation in its hole file's `disagreement` field.
+
+This is not 16 independent misses. STRAIGHT wins or ties all 16 holes — including holes commentary attributes to BOMBER, TOUCH, or SCRAMBLER — because the archetype table's accuracy spread gives STRAIGHT a base lateral-dispersion coefficient (`0.105 − accuracy·0.062` = 0.046) roughly 1.5-1.75× smaller than every other archetype's (BOMBER 0.080, SCRAMBLER 0.071, TOUCH 0.074) *before* the effort penalty is applied, and the effort penalty's current magnitude at real hole lengths (106-663 yards) isn't large enough to close that gap. This is, hole for hole, the exact "accuracy always wins" failure mode this section's shot model narrative (doc 4.3) describes the effort penalty being built over four iterations to prevent — except here, with the penalty coded exactly as documented, it doesn't prevent that failure mode against an independently-sourced real-hole set. Two explanations, deliberately not pursued in this pass (**calibration debt**, doc 10 — a coefficient change requires its own `simVersion` bump and a full re-validation run, not a fix folded into the validation harness's own commit): the effort-penalty coefficient may have drifted from the original lost calibration, or today's archetype accuracy spread may be wider than whatever the original 8-hole run was calibrated against. See individual hole files for per-hole nuance — several near-misses (Augusta 12, Shinnecock 7) are close to the original run's own "STRAIGHT ≈ TOUCH on short par 3s" pattern, and Erin Hills 18's STRAIGHT-leaning result is arguably corroborated by the real 2017 U.S. Open (Koepka's win was an accuracy record, not a power one).
+
+**2026-08-15 — gate suspended, harness parked.** Several of the "disagreements" above carry margins of 0.003–0.05 strokes and are flagged seed-unstable — Augusta 12 (0.004), Royal Troon 8 (0.003) — meaning the 6-of-16 headline overstates how decisively the model gets these wrong; the ordering it's graded on is frequently closer to a coin flip than a confident miss. Rather than chase 12/15 on that ordering, this pass (see §4.2's amendment and §6.1's amendment) replaces the fixed archetype table with trait-composed golfers and the flat corridor with a bending one — the two structural causes identified above — and **retires the archetype-bias gate below and in §9 rather than re-running it against a vocabulary (`BOMBER`/`STRAIGHT`/`SCRAMBLER`/`TOUCH`) that no longer exists.** The 16 hole files are kept as a diagnostic corpus (`packages/content/validation/`, harness code moved to `validation/_parked/`), not deleted, in case they're useful again once the new roster has enough of a track record to re-register expectations against. §10's "no sim change ships without re-running the validation set" rule is on hold for the same reason — there is currently no validation set the new roster's vocabulary can be checked against. In its place: `packages/sim/scripts/roster-balance.mjs`'s win-share report (no golfer above ~35% across a varied parcel set) is the interim day-to-day check.
 
 ---
 
@@ -151,9 +159,11 @@ This is a design change, not just a layout one. A portrait parcel — say 200 yd
 
 The upside: aspect ratio becomes a per-parcel difficulty dial the player can feel. A wide portrait parcel reads as a driver hole; a narrow one reads as a corridor. The shape tells you what kind of problem you're looking at before you place anything.
 
+**2026-08-15 amendment — parcels are no longer straight rectangles.** "Vertical rectangles" above described the *boundary*, but the fairway/OB envelope inside it was also flat — a single half-width scalar, unbounded in x. That meant doglegs, and the accuracy-over-power tradeoff a real dogleg's corner creates, weren't expressible at all (see §4.2's amendment: this was the other half of why the trait rework was needed, not just a coefficient fix). The corridor is now a sequence of stations along the hole — each with its own centerline drift and fairway/OB half-width (`@redan/sim`'s `CorridorStation`, `@redan/schema`'s portrait-frame mirror) — so a fairway can bend, narrow, or widen along its length. The parcel's outer boundary is still authored as a rectangle; what bends is the playable envelope inside it. Parcels can also now carry `fixedRegions`: terrain (trees, native area) the player places nothing over and cannot remove, fixed by the parcel author — without something fixed in a dogleg's inside corner, cutting it is free, not a decision.
+
 ### 6.2 Parcel = terrain + tray
 
-A parcel is terrain, a fixed tee, a required par, a wind, and a tray of allowed pieces with counts. **[thin]** The shape parameter table — pot vs. coffin bunker dimensions and the rest — was never finalised and is an M0 deliverable.
+A parcel is terrain, a fixed tee, a required par, a wind, and a tray of allowed pieces with counts. **[thin]** The shape parameter table — pot vs. coffin bunker dimensions and the rest — was never finalised and is an M0 deliverable. (Since the 2026-08-15 amendment above, "terrain" also includes the corridor's own shape and any fixed regions — not just the placed pieces.)
 
 ### 6.3 Design serialization
 
@@ -239,6 +249,8 @@ Extract sim as a standalone package with a documented contract. Add `simVersion`
 
 **Gate:** 15+ real holes; model agrees with consensus on archetype bias for 12; every disagreement has a written explanation. Not "the numbers look fine."
 
+**2026-08-15 — suspended**, not met and not being chased in its current form. See §4.4's amendment: the archetype-bias vocabulary this gate is written against was retired along with the fixed four-archetype table it was measuring. Interim substitute: `packages/sim/scripts/roster-balance.mjs`'s win-share report.
+
 **Risk:** this phase expands. Elevation alone re-opens every coefficient. Timebox it; accept 12/15 over chasing 15/15.
 
 ### M1 · Playable slice
@@ -287,7 +299,7 @@ Pipeline from traced polygons → parcel with golf stripped. Famous parcels. "Be
 
 ## 10. Cross-cutting risks
 
-**Calibration debt.** Every change touching the shot model — elevation, wind variance, green slope, rough bands — re-opens M0. Rule: no sim change ships without re-running the validation set.
+**Calibration debt.** Every change touching the shot model — elevation, wind variance, green slope, rough bands — re-opens M0. Rule: no sim change ships without re-running the validation set. **On hold as of 2026-08-15** (see §4.4's amendment) — there is currently no real-hole validation set the trait-composed roster can be checked against; `packages/sim/scripts/roster-balance.mjs`'s win-share report is the interim substitute. Reinstate this rule once a validation set exists again for the new roster.
 
 **Content volume.** Nine parcels is a demo; sixty is a game. Track parcels-authored-per-hour as a real metric from M1. It determines whether M5 arrives in time to matter.
 

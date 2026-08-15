@@ -1,0 +1,51 @@
+{
+  "id": "oakmont-3",
+  "course": "Oakmont",
+  "hole": 3,
+  "par": 4,
+  "yardage": 462,
+  "scoringAverage": 4.320,
+  "wind": { "speed": 0, "dirDeg": 0 },
+  "expected": {
+    "favors": ["STRAIGHT"],
+    "rationale": "Oakmont's fairway is pinched on both sides (the restored Church Pew bunkers left, deep bunkers right) at ~28 yards average width, with a severely elevated, squared-off green that repels both short and long misses. The Fried Egg notes a real risk/reward bonus for playing tight to the Church Pews, but published commentary leans clearly toward accuracy as the dominant demand at a U.S. Open course famous for punishing any miss.",
+    "sources": [
+      "NBC Sports, 'U.S. Open 2025: Hole-by-hole look at Oakmont Country Club'",
+      "The Fried Egg, 'Oakmont Country Club Review and Rating'",
+      "Geoff Shackelford, The Quadrilateral, 'Course Preview: Oakmont'"
+    ]
+  },
+  "approximations": [
+    "scoring average (4.320) is from the 2016 U.S. Open; 2025 hole-specific stats were not accessible, and the yardage (462) is the 2025 tee — a minor tee/era mismatch",
+    "the Church Pew bunker complex is approximated as a single long coffin bunker, not its real segmented-pew geometry",
+    "a simple 3-point elevation profile approximates the hole's uphill, partly blind approach (uncalibrated coefficient — see sim README)"
+  ],
+  "disagreement": null,
+  "parcel": {
+    "id": "oakmont-3",
+    "schemaVersion": "0.1.0",
+    "par": 4,
+    "corridorHalfWidth": 15,
+    "obHalfWidth": 45,
+    "pieceCap": 3,
+    "tray": [
+      { "shapeId": "green-small", "count": 1 },
+      { "shapeId": "bunker-coffin", "count": 1 },
+      { "shapeId": "bunker-pot", "count": 1 }
+    ],
+    "elevationProfile": [
+      { "y": 0, "z": 0 },
+      { "y": 300, "z": 8 },
+      { "y": 462, "z": 22 }
+    ]
+  },
+  "design": {
+    "parcelId": "oakmont-3",
+    "schemaVersion": "0.1.0",
+    "pieces": [
+      { "shapeId": "bunker-coffin", "x": -22, "y": 260, "rot": 90, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": 20, "y": 250, "rot": 0, "scale": 1 },
+      { "shapeId": "green-small", "x": 0, "y": 455, "rot": 0, "scale": 1 }
+    ]
+  }
+}

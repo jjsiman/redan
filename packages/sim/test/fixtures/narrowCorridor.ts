@@ -1,14 +1,15 @@
 import type { Parcel, Piece } from "../../src/types.js";
+import { straightCorridor } from "../../src/terrain.js";
 
 /**
  * Moderate length (360 yards) but a tight corridor with OB close on both
- * sides — dispersion gets punished hard. Accuracy should beat power here.
+ * sides — dispersion gets punished hard. Accuracy-favoring traits should
+ * beat power-favoring ones here.
  */
 export const parcel: Parcel = {
   id: "fixture-narrow-corridor",
   par: 4,
-  corridorHalfWidth: 11,
-  obHalfWidth: 16,
+  corridor: straightCorridor(400, 11, 16),
   pieceCap: 3,
 };
 

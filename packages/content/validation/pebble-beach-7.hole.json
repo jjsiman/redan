@@ -1,0 +1,47 @@
+{
+  "id": "pebble-beach-7",
+  "course": "Pebble Beach",
+  "hole": 7,
+  "par": 3,
+  "yardage": 106,
+  "scoringAverage": 2.852,
+  "wind": { "speed": 0, "dirDeg": 0 },
+  "expected": {
+    "favors": ["STRAIGHT", "TOUCH"],
+    "tie": true,
+    "rationale": "Power is explicitly irrelevant at 106 yards. PGA Tour's own coverage frames the challenge as hitting a small, well-bunkered target precisely (STRAIGHT) while improvising a soft, wind-adjusted trajectory (TOUCH, using that exact word) — no source supports a single archetype over the other.",
+    "sources": [
+      "PGA Tour, 'Pebble Beach's short but tall task'",
+      "PGA Tour, 'AT&T Pebble Beach Pro-Am 2025 Course Stats'",
+      "Golf Monthly, '5 Facts About Pebble Beach's Famous Par-3 7th Hole'"
+    ]
+  },
+  "approximations": [
+    "scoring average is from the 2025 AT&T Pebble Beach Pro-Am (a calm-conditions, non-major week); the hole's real scoring is famously wind-driven and can range far higher (77.27 field average in the storm-hit final round of the 1992 U.S. Open), so the plausibility check here has less signal than it would for a major-championship hole",
+    "ocean/cliff surrounds on three sides approximated as an OB boundary plus rough beyond, not literal water",
+    "green scaled to 80% of the green-small primitive to approximate the hole's unusually small target"
+  ],
+  "disagreement": null,
+  "parcel": {
+    "id": "pebble-beach-7",
+    "schemaVersion": "0.1.0",
+    "par": 3,
+    "corridorHalfWidth": 12,
+    "obHalfWidth": 35,
+    "pieceCap": 4,
+    "tray": [
+      { "shapeId": "green-small", "count": 1 },
+      { "shapeId": "bunker-pot", "count": 3 }
+    ]
+  },
+  "design": {
+    "parcelId": "pebble-beach-7",
+    "schemaVersion": "0.1.0",
+    "pieces": [
+      { "shapeId": "bunker-pot", "x": -10, "y": 100, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": 10, "y": 100, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": 0, "y": 114, "rot": 0, "scale": 1 },
+      { "shapeId": "green-small", "x": 0, "y": 106, "rot": 0, "scale": 0.8 }
+    ]
+  }
+}

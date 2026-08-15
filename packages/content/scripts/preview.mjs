@@ -3,7 +3,7 @@
 import { writeFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { grade, ARCHETYPE_NAMES, SIM_VERSION } from "@redan/sim";
+import { grade, ROSTER, SIM_VERSION } from "@redan/sim";
 import { toSimInputs, validateDesign, SCHEMA_VERSION } from "@redan/schema";
 import { PARCEL_IDS, loadParcel, loadDesign, renderHoleSvg, renderElevationSvg, describeResult } from "../dist/index.js";
 
@@ -17,7 +17,8 @@ function describeRoute(route) {
       : `${Math.abs(route.aimOffsetDeg)}° ${route.aimOffsetDeg > 0 ? "right" : "left"}`;
   const curve = route.spin === 0 ? "no curve" : route.spin > 0 ? "fades" : "draws";
   const strategy = route.laysUp ? "lays up when it can't reach" : "always advances";
-  return `${aim} aim, ${curve} · ${strategy} · ${Math.round(route.power * 100)}% power`;
+  const line = route.aimLine === "corridor" ? " · follows the bend" : "";
+  return `${aim} aim, ${curve} · ${strategy} · ${Math.round(route.power * 100)}% power${line}`;
 }
 
 function starRow(stars) {
@@ -35,13 +36,13 @@ function renderCard(id) {
   const verdict = describeResult(parcel, result);
   const elevationSvg = renderElevationSvg(parcel);
 
-  const rows = ARCHETYPE_NAMES.map((name) => {
-    const a = result.archetypes[name];
+  const rows = ROSTER.map((golfer) => {
+    const g = result.golfers[golfer.id];
     return `<tr>
-      <td><span class="swatch swatch-${name.toLowerCase()}"></span>${name}</td>
-      <td class="num">${a.mean.toFixed(2)}</td>
-      <td class="num">${a.sd.toFixed(2)}</td>
-      <td class="route">${describeRoute(a.route)}</td>
+      <td><span class="swatch swatch-${golfer.id}"></span>${golfer.label}</td>
+      <td class="num">${g.mean.toFixed(2)}</td>
+      <td class="num">${g.sd.toFixed(2)}</td>
+      <td class="route">${describeRoute(g.route)}</td>
     </tr>`;
   }).join("\n");
 
@@ -65,9 +66,9 @@ function renderCard(id) {
 
     <div class="panel">
       <table class="archetype-table">
-        <caption>Archetype results (seed ${SEED})</caption>
+        <caption>Golfer results (seed ${SEED})</caption>
         <thead>
-          <tr><th scope="col">Archetype</th><th scope="col">Mean</th><th scope="col">SD</th><th scope="col">Route</th></tr>
+          <tr><th scope="col">Golfer</th><th scope="col">Mean</th><th scope="col">SD</th><th scope="col">Route</th></tr>
         </thead>
         <tbody>
           ${rows}
@@ -77,6 +78,7 @@ function renderCard(id) {
       <dl class="metrics">
         <div><dt>Field</dt><dd>${m.field.toFixed(2)}</dd></div>
         <div><dt>Spread</dt><dd>${m.spread.toFixed(2)}</dd></div>
+        <div><dt>Contested</dt><dd>${m.contested.toFixed(2)}</dd></div>
         <div><dt>σ</dt><dd>${m.sd.toFixed(2)}</dd></div>
         <div><dt>Routes</dt><dd>${m.routes}</dd></div>
         <div><dt>Used / Cap</dt><dd>${m.used} / ${m.cap}</dd></div>
@@ -99,7 +101,7 @@ const html = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Two Holes, Four Golfers</title>
+<title>Redan Parcel Preview</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
 :root {
@@ -126,10 +128,13 @@ const html = `<!doctype html>
   --diagram-tee: #171a12;
   --status-good-c: #0ca30c;
   --status-warn-c: #b5432c;
-  --arc-bomber: #2a78d6;
-  --arc-straight: #eb6834;
-  --arc-scrambler: #1baf7a;
-  --arc-touch: #eda100;
+  --arc-basher: #2a78d6;
+  --arc-plodder: #eb6834;
+  --arc-wedge-artist: #1baf7a;
+  --arc-houdini: #eda100;
+  --arc-drawer: #9b59d0;
+  --arc-fader: #d63384;
+  --arc-iron-man: #8a5a2b;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -156,10 +161,13 @@ const html = `<!doctype html>
     --diagram-tee: #f1f2ea;
     --status-good-c: #0ca30c;
     --status-warn-c: #e2725a;
-    --arc-bomber: #3987e5;
-    --arc-straight: #d95926;
-    --arc-scrambler: #199e70;
-    --arc-touch: #c98500;
+    --arc-basher: #3987e5;
+    --arc-plodder: #d95926;
+    --arc-wedge-artist: #199e70;
+    --arc-houdini: #c98500;
+    --arc-drawer: #b478e0;
+    --arc-fader: #ea5c9e;
+    --arc-iron-man: #b17c42;
   }
 }
 :root[data-theme="dark"] {
@@ -186,10 +194,13 @@ const html = `<!doctype html>
   --diagram-tee: #f1f2ea;
   --status-good-c: #0ca30c;
   --status-warn-c: #e2725a;
-  --arc-bomber: #3987e5;
-  --arc-straight: #d95926;
-  --arc-scrambler: #199e70;
-  --arc-touch: #c98500;
+  --arc-basher: #3987e5;
+  --arc-plodder: #d95926;
+  --arc-wedge-artist: #199e70;
+  --arc-houdini: #c98500;
+  --arc-drawer: #b478e0;
+  --arc-fader: #ea5c9e;
+  --arc-iron-man: #b17c42;
 }
 
 * { box-sizing: border-box; }
@@ -330,10 +341,13 @@ figcaption {
   margin-right: 0.4rem;
   vertical-align: middle;
 }
-.swatch-bomber { background: var(--arc-bomber); }
-.swatch-straight { background: var(--arc-straight); }
-.swatch-scrambler { background: var(--arc-scrambler); }
-.swatch-touch { background: var(--arc-touch); }
+.swatch-basher { background: var(--arc-basher); }
+.swatch-plodder { background: var(--arc-plodder); }
+.swatch-wedge-artist { background: var(--arc-wedge-artist); }
+.swatch-houdini { background: var(--arc-houdini); }
+.swatch-drawer { background: var(--arc-drawer); }
+.swatch-fader { background: var(--arc-fader); }
+.swatch-iron-man { background: var(--arc-iron-man); }
 
 .metrics {
   display: grid;
@@ -383,8 +397,8 @@ footer.notes code {
 <div class="page">
   <header class="top">
     <p class="eyebrow-top">Redan · M0 development preview</p>
-    <h1>Two holes, four golfers, one seed</h1>
-    <p class="lede">Every number below comes from <code>@redan/sim</code>'s <code>grade()</code>, run against the two example parcels in <code>@redan/content</code>. <span class="warn">Not validated against real holes</span> — the original course-geometry validation set was lost; this checks that the pipeline works, not that it's calibrated correctly yet.</p>
+    <h1>Every parcel, seven golfers, one seed</h1>
+    <p class="lede">Every number below comes from <code>@redan/sim</code>'s <code>grade()</code>, run against the example parcels in <code>@redan/content</code>. <span class="warn">Not validated against real holes</span> — the real-hole harness is parked (see <code>validation/README.md</code>); this checks that the pipeline works and the trait roster produces real variety, via <code>packages/sim/scripts/roster-balance.mjs</code>, not that it's calibrated against real courses yet.</p>
   </header>
 
   <div class="cards">

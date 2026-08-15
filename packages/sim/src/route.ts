@@ -1,16 +1,19 @@
 import type {
-  ArchetypeStats,
+  GolferStats,
   LieType,
   Parcel,
   Route,
   Shot,
+  ShotContext,
+  TraitEffects,
   Vec2,
   Wind,
 } from "./types.js";
 import type { Rng } from "./rng.js";
 import { randNormalMV } from "./rng.js";
-import { lieAt, type TerrainQuery } from "./terrain.js";
-import { fullCarry, layupTarget, resolvePutts, shotDispersion } from "./shotModel.js";
+import { lieAt, corridorBends, type TerrainQuery } from "./terrain.js";
+import { pointAtStation, projectToPolyline } from "./geom.js";
+import { effectiveTouch, fullCarry, layupTarget, resolvePutts, shotDispersion } from "./shotModel.js";
 import { resolveFlight, resolveRoll } from "./flight.js";
 
 function dist(a: Vec2, b: Vec2): number {
@@ -18,24 +21,25 @@ function dist(a: Vec2, b: Vec2): number {
 }
 
 /**
- * The archetype's "route space" (doc 4.2): route choice and archetype are
- * the same axis, so each archetype independently searches this space and
- * keeps whichever candidate scores best. Four dimensions:
+ * The golfer's "route space" (doc 4.2, extended): each golfer independently
+ * searches this space and keeps whichever candidate scores best. Five
+ * dimensions:
  *  - aim offset (degrees off the direct line to the target)
  *  - spin (signed curve strength — see flight.ts)
  *  - power (fraction of full carry, for shots that are neither a green
- *    attack nor a lay-up — without this dimension every "just advance the
- *    ball" shot would swing at exactly 100% effort by construction, the
- *    failure mode the doc's Erin Hills 18 example describes fixing)
+ *    attack nor a lay-up)
  *  - lay-up (whether to lay up short of the green when it isn't comfortably
  *    reachable, vs. always advancing at full power)
- * Trimmed to ~3 candidates on aim/spin (72 combos total) to keep the grid
- * search tractable now that it's 4-dimensional instead of 2.
+ *  - aim line (new): on a bending corridor, whether an "advance" shot
+ *    follows the bend or cuts straight at the green. Only searched when the
+ *    corridor actually bends (corridorBends), so a straight hole still costs
+ *    exactly the old 72 combinations.
  */
 const AIM_OFFSET_CANDIDATES = [-6, 0, 6];
 const SPIN_CANDIDATES = [-1, 0, 1];
 const POWER_CANDIDATES = [1.0, 0.9, 0.82, 0.72];
 const LAYUP_CANDIDATES = [true, false];
+const AIM_LINE_CANDIDATES: Route["aimLine"][] = ["corridor", "green"];
 
 const ROUTE_SEARCH_TRIALS = 20;
 const FINAL_TRIALS = 150;
@@ -51,6 +55,8 @@ const MAX_SHOTS_PER_ROUND = 20;
 const REACH_THRESHOLD = 1.05;
 const LAYUP_ZONE_LIMIT = 1.8;
 const WATER_DROP_BUFFER = 8;
+/** Aggression's weight in the route search objective — see searchRoute. */
+const AGGRESSION_SD_DISCOUNT = 0.1;
 
 export interface RoundResult {
   strokes: number;
@@ -87,11 +93,32 @@ function resolveHazardDrop(
   return { pos, lie, penalty: 1 };
 }
 
+/**
+ * Which ShotContext this shot is (types.ts's doc comment on ShotContext has
+ * the intent). Trouble lies always read as "recovery" regardless of which
+ * branch the shot fell into — a green attack hit from the rough is still a
+ * recovery-difficulty shot for trait purposes.
+ */
+function shotContext(lie: LieType, branch: "reach" | "layup" | "advance", isFirstShot: boolean): ShotContext {
+  if (lie !== "tee" && lie !== "fairway" && lie !== "green") return "recovery";
+  if (branch === "reach") return "short";
+  if (branch === "layup") return "long";
+  return isFirstShot ? "drive" : "long";
+}
+
+/** True if `spin` curves opposite a drawer/fader trait's shapeBias — see shotModel.ts's shapeAgainstPenalty. */
+function isAgainstShape(traits: TraitEffects[], spin: number): boolean {
+  const spinSign = Math.sign(spin);
+  if (spinSign === 0) return false;
+  return traits.some((t) => t.shapeBias && t.shapeBias !== spinSign);
+}
+
 function playRound(
   parcel: Parcel,
   terrain: TerrainQuery,
   greenCenter: Vec2,
-  stats: ArchetypeStats,
+  stats: GolferStats,
+  traits: TraitEffects[],
   route: Route,
   wind: Wind,
   rng: Rng,
@@ -102,20 +129,43 @@ function playRound(
   const shots: Shot[] = [];
 
   for (let i = 0; i < MAX_SHOTS_PER_ROUND && lie !== "green"; i++) {
-    const full = fullCarry(stats, lie);
     const remaining = dist(pos, greenCenter);
 
     let targetDist: number;
-    if (remaining <= full * REACH_THRESHOLD) {
+    let headingTarget: Vec2;
+    let branch: "reach" | "layup" | "advance";
+
+    // fullCarry depends on `context`, but context depends on which branch we
+    // take, which depends on remaining vs. full carry. Chicken-and-egg —
+    // resolved with a provisional "long" context (the common case; only
+    // matters for a golfer whose carryMul varies by context, e.g. `long`'s
+    // drive-only bonus) to pick the branch. shotDispersion below recomputes
+    // fullCarry internally with the real context once it's known.
+    const provisionalFull = fullCarry(stats, lie, traits, "long");
+
+    if (remaining <= provisionalFull * REACH_THRESHOLD) {
+      branch = "reach";
       targetDist = remaining;
-    } else if (route.laysUp && remaining <= full * LAYUP_ZONE_LIMIT) {
-      targetDist = Math.min(full, Math.max(20, layupTarget(remaining, full)));
+      headingTarget = greenCenter;
+    } else if (route.laysUp && remaining <= provisionalFull * LAYUP_ZONE_LIMIT) {
+      branch = "layup";
+      targetDist = Math.min(provisionalFull, Math.max(20, layupTarget(remaining, provisionalFull)));
+      headingTarget = greenCenter;
     } else {
-      targetDist = Math.min(remaining, full * route.power);
+      branch = "advance";
+      targetDist = Math.min(remaining, provisionalFull * route.power);
+      if (route.aimLine === "corridor" && corridorBends(parcel.corridor)) {
+        const proj = projectToPolyline(terrain.corridor.points, pos);
+        headingTarget = pointAtStation(terrain.corridor.points, proj.s + targetDist);
+      } else {
+        headingTarget = greenCenter;
+      }
     }
 
+    const context = shotContext(lie, branch, i === 0);
+
     // Phase 1: intended flight — a deterministic curved arc from aim/spin/wind/elevation.
-    const flight = resolveFlight(parcel, pos, greenCenter, targetDist, route, wind);
+    const flight = resolveFlight(parcel, pos, headingTarget, targetDist, route, wind);
 
     const flightDirX = flight.endpoint.x - pos.x;
     const flightDirY = flight.endpoint.y - pos.y;
@@ -127,7 +177,8 @@ function playRound(
 
     // Phase 2: execution noise — the doc-calibrated sigma formulas, applied
     // around the curved intended endpoint rather than a straight-line one.
-    const { lateralSigma, distanceSigma } = shotDispersion(stats, lie, targetDist);
+    const against = isAgainstShape(traits, route.spin);
+    const { lateralSigma, distanceSigma } = shotDispersion(stats, lie, targetDist, traits, context, against);
     const distanceError = randNormalMV(rng, 0, distanceSigma);
     const lateralError = randNormalMV(rng, 0, lateralSigma);
     const carryLanding: Vec2 = {
@@ -195,7 +246,7 @@ function playRound(
   }
 
   const distFeet = dist(pos, greenCenter) * 3;
-  const { putts } = resolvePutts(distFeet, stats.touch, rng());
+  const { putts } = resolvePutts(distFeet, effectiveTouch(stats, traits), rng());
   strokes += putts;
   shots.push({ from: pos, to: greenCenter, lieAfter: "green", penaltyStrokes: 0 });
 
@@ -219,33 +270,46 @@ export interface RouteSearchResult {
 }
 
 /**
- * Searches the route space for one archetype and returns the best candidate
- * (lowest mean score, ties broken by lower sd), re-evaluated over
- * FINAL_TRIALS rounds for a stable mean/sd.
+ * Searches the route space for one golfer and returns the best candidate,
+ * re-evaluated over FINAL_TRIALS rounds for a stable mean/sd. Objective is
+ * `mean - aggression * AGGRESSION_SD_DISCOUNT * sd`, ties broken by lower
+ * sd — a golfer with no `aggression` trait (the default) reduces to the
+ * original "lowest mean, ties broken by lower sd" rule; a gambler-type
+ * discounts sd's weight, so it's more willing to take a lower-mean, higher-
+ * variance route than a zero-aggression golfer would.
  */
 export function searchRoute(
   parcel: Parcel,
   terrain: TerrainQuery,
   greenCenter: Vec2,
-  stats: ArchetypeStats,
+  stats: GolferStats,
+  traits: TraitEffects[],
   wind: Wind,
   rng: Rng,
 ): RouteSearchResult {
-  let best: { route: Route; mean: number; sd: number } | null = null;
+  const aggression = traits.reduce((sum, t) => sum + (t.aggression ?? 0), 0);
+  const aimLineCandidates: Route["aimLine"][] = corridorBends(parcel.corridor)
+    ? AIM_LINE_CANDIDATES
+    : ["green"];
 
-  for (const aimOffsetDeg of AIM_OFFSET_CANDIDATES) {
-    for (const spin of SPIN_CANDIDATES) {
-      for (const laysUp of LAYUP_CANDIDATES) {
-        for (const power of POWER_CANDIDATES) {
-          const route: Route = { aimOffsetDeg, spin, power, laysUp };
-          const scores: number[] = [];
-          for (let i = 0; i < ROUTE_SEARCH_TRIALS; i++) {
-            scores.push(playRound(parcel, terrain, greenCenter, stats, route, wind, rng).strokes);
-          }
-          const m = mean(scores);
-          const sd = stddev(scores, m);
-          if (!best || m < best.mean || (m === best.mean && sd < best.sd)) {
-            best = { route, mean: m, sd };
+  let best: { route: Route; mean: number; sd: number; score: number } | null = null;
+
+  for (const aimLine of aimLineCandidates) {
+    for (const aimOffsetDeg of AIM_OFFSET_CANDIDATES) {
+      for (const spin of SPIN_CANDIDATES) {
+        for (const laysUp of LAYUP_CANDIDATES) {
+          for (const power of POWER_CANDIDATES) {
+            const route: Route = { aimOffsetDeg, spin, power, laysUp, aimLine };
+            const scores: number[] = [];
+            for (let i = 0; i < ROUTE_SEARCH_TRIALS; i++) {
+              scores.push(playRound(parcel, terrain, greenCenter, stats, traits, route, wind, rng).strokes);
+            }
+            const m = mean(scores);
+            const sd = stddev(scores, m);
+            const score = m - aggression * AGGRESSION_SD_DISCOUNT * sd;
+            if (!best || score < best.score || (score === best.score && sd < best.sd)) {
+              best = { route, mean: m, sd, score };
+            }
           }
         }
       }
@@ -256,14 +320,14 @@ export function searchRoute(
   const scores: number[] = [];
   let trace: Shot[] = [];
   for (let i = 0; i < FINAL_TRIALS; i++) {
-    const result = playRound(parcel, terrain, greenCenter, stats, chosen, wind, rng);
+    const result = playRound(parcel, terrain, greenCenter, stats, traits, chosen, wind, rng);
     scores.push(result.strokes);
     if (i === 0) trace = result.shots;
   }
-  const m = mean(scores);
-  const sd = stddev(scores, m);
+  const finalMean = mean(scores);
+  const finalSd = stddev(scores, finalMean);
 
-  return { route: chosen, mean: m, sd, scores, trace };
+  return { route: chosen, mean: finalMean, sd: finalSd, scores, trace };
 }
 
 export const ROUTE_SEARCH_TUNABLES = {
@@ -271,7 +335,10 @@ export const ROUTE_SEARCH_TUNABLES = {
   SPIN_CANDIDATES,
   POWER_CANDIDATES,
   LAYUP_CANDIDATES,
+  AIM_LINE_CANDIDATES,
   ROUTE_SEARCH_TRIALS,
   FINAL_TRIALS,
   MAX_SHOTS_PER_ROUND,
+  REACH_THRESHOLD,
+  LAYUP_ZONE_LIMIT,
 };

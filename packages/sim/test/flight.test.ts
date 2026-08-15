@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { resolveFlight, resolveRoll } from "../src/flight.js";
+import { straightCorridor } from "../src/terrain.js";
 import type { Parcel } from "../src/types.js";
 
 function makeParcel(overrides: Partial<Parcel> = {}): Parcel {
   return {
     id: "test",
     par: 4,
-    corridorHalfWidth: 20,
-    obHalfWidth: 40,
+    corridor: straightCorridor(200, 20, 40),
     pieceCap: 2,
     ...overrides,
   };

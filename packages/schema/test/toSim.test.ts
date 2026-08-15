@@ -33,8 +33,10 @@ describe("toSimInputs", () => {
     id: "p1",
     schemaVersion: SCHEMA_VERSION,
     par: 4,
-    corridorHalfWidth: 22,
-    obHalfWidth: 40,
+    corridor: [
+      { y: 0, cx: 0, halfWidth: 22, obHalfWidth: 40 },
+      { y: 440, cx: 0, halfWidth: 22, obHalfWidth: 40 },
+    ],
     pieceCap: 3,
     tray: [
       { shapeId: "green-large", count: 1 },
@@ -86,6 +88,36 @@ describe("toSimInputs", () => {
     expect(feature.y).toBeCloseTo(-10, 6);
     expect(feature.radius).toBe(25);
     expect(feature.height).toBe(8);
+  });
+
+  it("maps corridor stations through the frame rotation, preserving half-widths", () => {
+    const bent: Parcel = {
+      ...parcel,
+      corridor: [
+        { y: 0, cx: 0, halfWidth: 22, obHalfWidth: 40 },
+        { y: 200, cx: 15, halfWidth: 18, obHalfWidth: 36 },
+      ],
+    };
+    const { parcel: simParcel } = toSimInputs(bent, design);
+    expect(simParcel.corridor).toHaveLength(2);
+    expect(simParcel.corridor[0]).toMatchObject({ halfWidth: 22, obHalfWidth: 40 });
+    expect(simParcel.corridor[0]!.x).toBeCloseTo(0, 6);
+    expect(simParcel.corridor[0]!.cy).toBeCloseTo(0, 6);
+    expect(simParcel.corridor[1]).toMatchObject({ x: 200, halfWidth: 18, obHalfWidth: 36 });
+    expect(simParcel.corridor[1]!.cy).toBeCloseTo(-15, 6);
+  });
+
+  it("converts fixedRegions the same way as design pieces, resolving shapeId to lieType/footprint", () => {
+    const withTrees: Parcel = {
+      ...parcel,
+      fixedRegions: [{ shapeId: "trees", x: 10, y: 150, rot: 0, scale: 1 }],
+    };
+    const { parcel: simParcel } = toSimInputs(withTrees, design);
+    expect(simParcel.fixedRegions).toHaveLength(1);
+    const trees = simParcel.fixedRegions![0]!;
+    expect(trees.lieType).toBe("deep");
+    expect(trees.x).toBeCloseTo(150, 6);
+    expect(trees.y).toBeCloseTo(-10, 6);
   });
 
   it("throws on a parcelId mismatch", () => {

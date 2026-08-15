@@ -1,0 +1,46 @@
+{
+  "id": "merion-11",
+  "course": "Merion (East)",
+  "hole": 11,
+  "par": 4,
+  "yardage": 367,
+  "wind": { "speed": 0, "dirDeg": 0 },
+  "expected": {
+    "favors": ["STRAIGHT"],
+    "rationale": "A blind tee shot into a fairway that drops away, with Baffling Brook (a stretch of Cobb's Creek) running the left side then wrapping the front, right, and rear of a small, teardrop-shaped green — water guards three sides of the target. Architecture commentary repeatedly calls this 'the ultimate birdie-or-bust hole' where finding the fairway is paramount, a precision/placement test rather than a length test.",
+    "sources": [
+      "Fox News, \"US OPEN '13: A hole-by-hole look of Merion Golf Club\"",
+      "All Golf Holes, 'Merion Golf Club (East Course)'",
+      "USGA, 'Looking Back... 1950 U.S. Open at Merion'"
+    ]
+  },
+  "approximations": [
+    "no hole-specific scoring average found",
+    "the frequently-quoted Hogan 'hardest tiny par 4' line could not be verified in any source reached and is NOT used as the basis for this expectation; the architecture-writer consensus on the brook/green complex is used instead",
+    "the hazard here is Baffling Brook (Cobb's Creek), not Merion's quarry (that belongs to hole 16) — corrected from an earlier mis-hypothesis",
+    "the brook wrapping three sides of the green is approximated as two intersecting water-creek segments (front + right), not a continuous water body; the blind tee shot is not modeled (no line-of-sight mechanic)"
+  ],
+  "disagreement": "This is a trust failure, not an archetype miss: the observed winner (STRAIGHT) matches the expectation exactly, but the 5-seed winner splits (seed-unstable), so the reading isn't counted as agreement per this harness's trust rule. With a 0.30-stroke margin the average result looks decisive, but a hole with three sides of water around a small green is inherently high-variance (a single mishit can be a full penalty stroke), which plausibly explains why the modal winner isn't unanimous across seeds even when it wins on average. Not connected to the shared STRAIGHT-dominance root cause on augusta-13, since the expected and observed archetypes already agree here.",
+  "parcel": {
+    "id": "merion-11",
+    "schemaVersion": "0.1.0",
+    "par": 4,
+    "corridorHalfWidth": 17,
+    "obHalfWidth": 45,
+    "pieceCap": 4,
+    "tray": [
+      { "shapeId": "green-small", "count": 1 },
+      { "shapeId": "water-creek", "count": 3 }
+    ]
+  },
+  "design": {
+    "parcelId": "merion-11",
+    "schemaVersion": "0.1.0",
+    "pieces": [
+      { "shapeId": "water-creek", "x": -20, "y": 150, "rot": 90, "scale": 1 },
+      { "shapeId": "water-creek", "x": 0, "y": 345, "rot": 0, "scale": 1 },
+      { "shapeId": "water-creek", "x": 18, "y": 360, "rot": 90, "scale": 1 },
+      { "shapeId": "green-small", "x": 0, "y": 360, "rot": 0, "scale": 0.9 }
+    ]
+  }
+}

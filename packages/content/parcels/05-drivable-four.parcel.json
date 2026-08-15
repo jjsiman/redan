@@ -1,0 +1,21 @@
+{
+  "id": "05-drivable-four",
+  "schemaVersion": "0.2.0",
+  "par": 4,
+  "corridor": [
+    { "y": 0, "cx": 0, "halfWidth": 26, "obHalfWidth": 52 },
+    { "y": 70, "cx": 0, "halfWidth": 26, "obHalfWidth": 52 },
+    { "y": 140, "cx": -50, "halfWidth": 22, "obHalfWidth": 46 },
+    { "y": 220, "cx": -50, "halfWidth": 22, "obHalfWidth": 46 },
+    { "y": 260, "cx": -20, "halfWidth": 24, "obHalfWidth": 46 },
+    { "y": 300, "cx": -20, "halfWidth": 24, "obHalfWidth": 46 }
+  ],
+  "fixedRegions": [
+    { "shapeId": "trees", "x": 0, "y": 180, "rot": 90, "scale": 1 }
+  ],
+  "pieceCap": 2,
+  "tray": [
+    { "shapeId": "green-small", "count": 1 },
+    { "shapeId": "bunker-pot", "count": 1 }
+  ]
+}

@@ -17,10 +17,10 @@ describe("content -> schema -> sim round trip", () => {
       const result = grade(simParcel, pieces, { speed: 0, dirDeg: 0 }, 7);
 
       expect(result.simVersion).toBeTruthy();
-      for (const archetype of Object.values(result.archetypes)) {
-        expect(Number.isFinite(archetype.mean)).toBe(true);
-        expect(archetype.mean).toBeGreaterThan(parcel.par - 1);
-        expect(archetype.mean).toBeLessThan(parcel.par + 5);
+      for (const golfer of Object.values(result.golfers)) {
+        expect(Number.isFinite(golfer.mean)).toBe(true);
+        expect(golfer.mean).toBeGreaterThan(parcel.par - 1);
+        expect(golfer.mean).toBeLessThan(parcel.par + 5);
       }
     });
   }

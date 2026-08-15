@@ -1,0 +1,52 @@
+{
+  "id": "carnoustie-18",
+  "course": "Carnoustie",
+  "hole": 18,
+  "par": 4,
+  "yardage": 499,
+  "wind": { "speed": 0, "dirDeg": 0 },
+  "expected": {
+    "favors": ["STRAIGHT"],
+    "rationale": "The Barry Burn crosses the fairway near the tee, borders both sides of the drive zone, then crosses again just short of the green — famous for Jean van de Velde's 1999 collapse. ESPN's retrospective frames the hole's demand explicitly as 'precision and conservative play over aggression,' noting van de Velde could have played safely with an iron off the tee; the burn makes trouble largely unrecoverable rather than merely penal, rewarding a golfer who reliably threads a narrow, sequentially-hazarded corridor.",
+    "sources": [
+      "ESPN, 'How Jean van de Velde threw away The Open Championship at Carnoustie'",
+      "Haversham & Baker, 'Carnoustie Golf Links course guide'",
+      "My Sports Analysis / Golf Monthly, 'Carnoustie hole-by-hole guide'"
+    ]
+  },
+  "approximations": [
+    "no hole-specific scoring average found (tournament-wide 1999 average was 76.35, 2018 was 72.35); plausibility check left inactive",
+    "the Barry Burn's multiple crossings are approximated as four separate water-creek segments at the documented pinch points, not a continuous meandering watercourse",
+    "499 yards is the 2018 Open Championship setup; the 1999 van de Velde yardage was similar but not independently confirmed"
+  ],
+  "disagreement": null,
+  "parcel": {
+    "id": "carnoustie-18",
+    "schemaVersion": "0.1.0",
+    "par": 4,
+    "corridorHalfWidth": 16,
+    "obHalfWidth": 42,
+    "pieceCap": 8,
+    "tray": [
+      { "shapeId": "green-large", "count": 1 },
+      { "shapeId": "water-creek", "count": 4 },
+      { "shapeId": "bunker-pot", "count": 2 },
+      { "shapeId": "bunker-coffin", "count": 1 }
+    ]
+  },
+  "design": {
+    "parcelId": "carnoustie-18",
+    "schemaVersion": "0.1.0",
+    "pieces": [
+      { "shapeId": "water-creek", "x": 0, "y": 15, "rot": 0, "scale": 1 },
+      { "shapeId": "water-creek", "x": -18, "y": 140, "rot": 90, "scale": 1 },
+      { "shapeId": "water-creek", "x": 20, "y": 140, "rot": 90, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": -10, "y": 252, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": 8, "y": 255, "rot": 0, "scale": 1 },
+      { "shapeId": "water-creek", "x": 0, "y": 478, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": -15, "y": 495, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-coffin", "x": 18, "y": 500, "rot": 90, "scale": 1 },
+      { "shapeId": "green-large", "x": 0, "y": 499, "rot": 0, "scale": 1 }
+    ]
+  }
+}

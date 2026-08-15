@@ -1,0 +1,21 @@
+{
+  "id": "03-split-par5",
+  "schemaVersion": "0.2.0",
+  "par": 5,
+  "corridor": [
+    { "y": 0, "cx": 0, "halfWidth": 26, "obHalfWidth": 50 },
+    { "y": 140, "cx": 0, "halfWidth": 26, "obHalfWidth": 50 },
+    { "y": 230, "cx": 60, "halfWidth": 22, "obHalfWidth": 46 },
+    { "y": 340, "cx": 60, "halfWidth": 22, "obHalfWidth": 46 },
+    { "y": 420, "cx": 15, "halfWidth": 24, "obHalfWidth": 48 },
+    { "y": 560, "cx": 15, "halfWidth": 24, "obHalfWidth": 48 }
+  ],
+  "fixedRegions": [
+    { "shapeId": "trees", "x": 0, "y": 285, "rot": 90, "scale": 1 }
+  ],
+  "pieceCap": 2,
+  "tray": [
+    { "shapeId": "green-large", "count": 1 },
+    { "shapeId": "bunker-pot", "count": 1 }
+  ]
+}

@@ -34,6 +34,21 @@ export interface ElevationFeature {
 }
 
 /**
+ * One station along the corridor centerline, in the portrait frame: how far
+ * from the tee (`y`), how far the centerline has drifted laterally there
+ * (`cx` — 0 everywhere means a straight hole), and the fairway/OB envelope
+ * width. See @redan/sim's `CorridorStation` — this is its portrait-frame
+ * mirror (lateral drift is `cx` here, `cy` there, matching each frame's own
+ * x/y convention), converted 1:1 through `toSim.ts`'s rotation.
+ */
+export interface PortraitCorridorStation {
+  y: number;
+  cx: number;
+  halfWidth: number;
+  obHalfWidth: number;
+}
+
+/**
  * Terrain + tee + par + tray envelope, in the portrait frame. Does not
  * include the green — per doc 1, the player places the green too, same as
  * hazards, as one of the tray pieces.
@@ -42,10 +57,19 @@ export interface Parcel {
   id: string;
   schemaVersion: string;
   par: number;
-  /** Corridor half-width in yards; fairway/first-cut envelope around x=0. */
-  corridorHalfWidth: number;
-  /** Beyond this half-width from centerline is out of bounds. */
-  obHalfWidth: number;
+  /**
+   * The fairway/OB envelope as a sequence of stations along the hole,
+   * tee-first (>=2 stations). Must extend, in arc-length, at least as far as
+   * every placed piece including the green — see @redan/sim's `terrain.ts`.
+   */
+  corridor: PortraitCorridorStation[];
+  /**
+   * Parcel-authored terrain (trees, native area) the player cannot remove or
+   * place over and that never counts against `pieceCap` — placed the same
+   * way as a design piece (shapeId + x/y/rot/scale), just not part of the
+   * tray. What makes a dogleg's inside corner a real decision.
+   */
+  fixedRegions?: PlacedShape[];
   /** Total piece-cost budget available (`cap` in the star-3 "used < cap" gate). */
   pieceCap: number;
   /** Allowed shapes and counts — the tray (doc 6.2). */

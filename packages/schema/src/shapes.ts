@@ -56,6 +56,57 @@ export const SHAPE_TABLE: Record<string, ShapeDef> = {
     cost: 1,
     label: "Deep rough patch",
   },
+  // Added for the M0 validation harness (real-hole doglegs), not yet
+  // calibrated. `rough-patch` above is `deep` (0.52/2.60) — too punishing to
+  // stand in for a first cut, which is the piece a dogleg's inside corner
+  // actually needs.
+  "rough-band": {
+    lieType: "rough",
+    footprint: { kind: "rect", halfLength: 40, halfWidth: 12 },
+    cost: 1,
+    label: "Rough band",
+  },
+  "water-creek": {
+    lieType: "water",
+    footprint: { kind: "rect", halfLength: 60, halfWidth: 4 },
+    cost: 1,
+    label: "Creek",
+  },
+  // Added for the corridor/geometry rework's dogleg content. Unvalidated,
+  // same as the rest of the table.
+  "bunker-kidney": {
+    lieType: "bunker",
+    // A crescent, concave enough that a ball landing in the notch is
+    // fairway, not sand — exercises RegionShape's polygon variant. Points
+    // are local-frame, rot=0/scale=1, implicitly closed.
+    footprint: {
+      kind: "polygon",
+      points: [
+        { x: -14, y: -6 },
+        { x: 6, y: -10 },
+        { x: 14, y: -4 },
+        { x: 6, y: 0 },
+        { x: 14, y: 4 },
+        { x: 6, y: 10 },
+        { x: -14, y: 6 },
+        { x: -6, y: 0 },
+      ],
+    },
+    cost: 1,
+    label: "Kidney bunker",
+  },
+  "trees": {
+    lieType: "deep",
+    footprint: { kind: "rect", halfLength: 30, halfWidth: 15 },
+    cost: 1,
+    label: "Trees (fixed region)",
+  },
+  "native-area": {
+    lieType: "rough",
+    footprint: { kind: "rect", halfLength: 25, halfWidth: 25 },
+    cost: 1,
+    label: "Native area (fixed region)",
+  },
 };
 
 export function resolveShape(shapeId: string): ShapeDef {

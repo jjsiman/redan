@@ -1,5 +1,5 @@
-import type { Parcel as SimParcel, Piece as SimPiece } from "@redan/sim";
-import type { Design, Parcel, PlacedShape, PortraitVec2 } from "./types.js";
+import type { CorridorStation as SimCorridorStation, Parcel as SimParcel, Piece as SimPiece } from "@redan/sim";
+import type { Design, Parcel, PlacedShape, PortraitCorridorStation, PortraitVec2 } from "./types.js";
 import { resolveShape } from "./shapes.js";
 
 /**
@@ -26,6 +26,17 @@ export function toSimRot(portraitRotDeg: number): number {
 export interface SimInputs {
   parcel: SimParcel;
   pieces: SimPiece[];
+}
+
+/**
+ * Rotates a corridor station's lateral drift the same way toSimPoint does —
+ * treating (cx, y) as a portrait point and reading back sim x/cy from it —
+ * so the corridor bends consistently with everything else that crosses this
+ * boundary. Half-widths are frame-invariant (distances, not directions).
+ */
+function toSimCorridorStation(s: PortraitCorridorStation): SimCorridorStation {
+  const p = toSimPoint({ x: s.cx, y: s.y });
+  return { x: p.x, cy: p.y, halfWidth: s.halfWidth, obHalfWidth: s.obHalfWidth };
 }
 
 function placedShapeToSimPiece(placed: PlacedShape): SimPiece {
@@ -66,15 +77,17 @@ export function toSimInputs(parcel: Parcel, design: Design): SimInputs {
     height: f.height,
   }));
 
+  const fixedRegions = parcel.fixedRegions?.map(placedShapeToSimPiece);
+
   return {
     parcel: {
       id: parcel.id,
       par: parcel.par,
-      corridorHalfWidth: parcel.corridorHalfWidth,
-      obHalfWidth: parcel.obHalfWidth,
+      corridor: parcel.corridor.map(toSimCorridorStation),
       pieceCap: parcel.pieceCap,
       // exactOptionalPropertyTypes: only set the key when there's a value —
       // an explicit `elevationProfile: undefined` is a type error, not a no-op.
+      ...(fixedRegions ? { fixedRegions } : {}),
       ...(elevationProfile ? { elevationProfile } : {}),
       ...(elevationFeatures ? { elevationFeatures } : {}),
     },

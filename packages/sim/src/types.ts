@@ -24,10 +24,16 @@ export interface Vec2 {
   y: number;
 }
 
-/** A point-in-shape test in the sim's local (x=downrange, y=lateral) frame. */
+/**
+ * A point-in-shape test in the sim's local (x=downrange, y=lateral) frame.
+ * `polygon` points are authored at rot=0/scale=1 like the other two kinds,
+ * implicitly closed (no repeated last point), in the winding order the
+ * author wrote them — pointInPolygon (geom.ts) doesn't care about winding.
+ */
 export type RegionShape =
   | { kind: "circle"; radius: number }
-  | { kind: "rect"; halfLength: number; halfWidth: number };
+  | { kind: "rect"; halfLength: number; halfWidth: number }
+  | { kind: "polygon"; points: Vec2[] };
 
 /**
  * One placed piece from the tray. `footprint` is the shape at rot=0/scale=1;
@@ -69,16 +75,44 @@ export interface ElevationFeature {
 }
 
 /**
+ * One station along the corridor centerline: how far downrange (`x`), how
+ * far the centerline itself has drifted laterally at that point (`cy` — 0
+ * everywhere means a straight hole), and how wide the fairway/OB envelope
+ * is there. Stations are linearly interpolated between, same convention as
+ * `ElevationSample`. This is what makes a dogleg expressible: the centerline
+ * itself bends, rather than staying pinned to y=0 for the whole hole.
+ */
+export interface CorridorStation {
+  x: number;
+  cy: number;
+  halfWidth: number;
+  obHalfWidth: number;
+}
+
+/**
  * Terrain + tee + par + wind envelope. Does NOT include the green — the
  * player places the green as a piece, same as hazards.
  */
 export interface Parcel {
   id: string;
   par: number;
-  /** Corridor half-width in yards; fairway/first-cut envelope around y=0. */
-  corridorHalfWidth: number;
-  /** Beyond this half-width from centerline is out of bounds. */
-  obHalfWidth: number;
+  /**
+   * The fairway/OB envelope as a sequence of stations along the hole,
+   * tee-first. Must have >=2 stations and must extend (in arc-length) at
+   * least as far as any placed piece, including the green — a piece beyond
+   * the last station's arc-length resolves OB (see terrain.ts#lieAt), the
+   * same authoring constraint the old scalar obHalfWidth implicitly had for
+   * the lateral direction.
+   */
+  corridor: CorridorStation[];
+  /**
+   * Parcel-authored terrain (trees, native area, a stream) the player
+   * cannot remove or place over — never a tray piece, never counted against
+   * `pieceCap`. This is what makes a dogleg's inside corner a real decision
+   * rather than decoration: without something fixed in the corner, a player
+   * can just clear a lane straight through it.
+   */
+  fixedRegions?: Piece[];
   /** Total piece-cost budget available (`cap` in the star-3 "used < cap" gate). */
   pieceCap: number;
   /** Optional centerline elevation profile (the hole's overall grade). Flat (all z=0) if omitted. */
@@ -94,13 +128,65 @@ export interface Wind {
   dirDeg: number;
 }
 
-export type ArchetypeName = "BOMBER" | "STRAIGHT" | "SCRAMBLER" | "TOUCH";
+/**
+ * A golfer's id in the field roster (traits.ts). No longer a closed union of
+ * four names — see traits.ts's module doc for why the fixed-archetype model
+ * was replaced.
+ */
+export type GolferId = string;
 
-export interface ArchetypeStats {
+/**
+ * The flat base stat sheet every golfer in the field shares. All
+ * differentiation between golfers comes from their two traits (traits.ts),
+ * not from varying these — see traits.ts for why.
+ */
+export interface GolferStats {
   power: number;
   accuracy: number;
   recovery: number;
   touch: number;
+}
+
+/**
+ * Which kind of shot a trait's multiplier applies to — the axis a trait's
+ * cost and benefit must land on opposite sides of (traits.ts). `drive` = a
+ * full-power tee shot or advance; `long` = a shot inside going-for-it range
+ * but still a real swing; `short` = a green-attack or layup-precision shot;
+ * `recovery` = any shot played from a non-fairway/tee lie.
+ */
+export type ShotContext = "drive" | "long" | "short" | "recovery";
+
+/**
+ * One trait's numeric effects, applied as a multiplier layer on top of
+ * shotModel.ts's doc-calibrated formulas (never by editing those formulas
+ * or the base GolferStats). See traits.ts's module doc for the design rule
+ * this type exists to enforce: a trait's `Mul` fields close over 1.0 must
+ * not all sit on the same ShotContext as its `Mul` fields under 1.0.
+ */
+export interface TraitEffects {
+  /** Multiplies fullCarry's output, per shot context. */
+  carryMul?: Partial<Record<ShotContext, number>>;
+  /** Multiplies shotDispersion's lateralSigma, per shot context. */
+  lateralMul?: Partial<Record<ShotContext, number>>;
+  /** Multiplies shotDispersion's distanceSigma, per shot context. */
+  distanceMul?: Partial<Record<ShotContext, number>>;
+  /** Added directly into the recovery stat used by effectiveLieFactors — a trait-only recovery boost. */
+  recoveryBonus?: number;
+  /** Added directly into the touch value resolvePutts sees — a trait-only putting boost. */
+  puttBonus?: number;
+  /** Preferred curve direction this trait plays for free: -1 draws, 1 fades, 0 neither. */
+  shapeBias?: -1 | 0 | 1;
+  /** Lateral sigma multiplier (drive/long) applied when a route curves against shapeBias instead of with it. */
+  shapeAgainstPenalty?: number;
+  /** Tilts route search's objective off pure lowest-mean, toward accepting more variance for a lower floor/ceiling. Positive = more aggressive. */
+  aggression?: number;
+}
+
+/** One entry in the field roster: an id, a display label, and exactly two traits (traits.ts). */
+export interface Golfer {
+  id: GolferId;
+  label: string;
+  traits: [string, string];
 }
 
 /** One shot in a played-out round, for the trace/visualization layer. */
@@ -114,7 +200,7 @@ export interface Shot {
 }
 
 export interface ShotPath {
-  archetype: ArchetypeName;
+  golfer: GolferId;
   shots: Shot[];
   totalStrokes: number;
 }
@@ -134,11 +220,19 @@ export interface Route {
   spin: number;
   /** Swing power as a fraction of full carry, for shots that are neither an attack on the green nor a lay-up. */
   power: number;
-  /** Whether this archetype lays up on approach when it can't comfortably reach. */
+  /** Whether this golfer lays up on approach when it can't comfortably reach. */
   laysUp: boolean;
+  /**
+   * On a bending corridor, whether an "advance the ball" shot (neither a
+   * green attack nor a lay-up) follows the centerline's bend or cuts
+   * straight at the green across whatever is in the way. Only searched when
+   * the corridor actually bends (route.ts#corridorBends) — on a straight
+   * hole the two are identical, so this costs nothing there.
+   */
+  aimLine: "corridor" | "green";
 }
 
-export interface ArchetypeResult {
+export interface GolferResult {
   mean: number;
   sd: number;
   route: Route;
@@ -147,19 +241,28 @@ export interface ArchetypeResult {
 export interface GradeMetrics {
   /** Field average score relative to nothing subtracted — raw mean strokes. */
   field: number;
-  /** Spread between the best- and worst-performing archetype's mean score. */
+  /** Spread between the best- and worst-performing golfer's mean score. */
   spread: number;
-  /** Pooled noise level: average of each archetype's own score sd. */
+  /** Pooled noise level: average of each golfer's own score sd. */
   sd: number;
-  /** Count of distinct routes among the four archetypes' chosen strategies. */
+  /** Count of distinct routes among the field's chosen strategies. */
   routes: number;
+  /**
+   * How close the field's second-best mean is to its best — small means
+   * several golfers are genuinely in contention, not just one winner and a
+   * pack of also-rans. New in the trait rework (traits.ts's module doc):
+   * with `spread` mechanically widening once the field grew past four
+   * golfers, `contested` is what actually answers "is more than one kind of
+   * player rewarded here."
+   */
+  contested: number;
   used: number;
   cap: number;
   parOK: boolean;
 }
 
 export interface GradeResult {
-  archetypes: Record<ArchetypeName, ArchetypeResult>;
+  golfers: Record<GolferId, GolferResult>;
   metrics: GradeMetrics;
   traces: ShotPath[];
   simVersion: string;

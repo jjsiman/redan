@@ -1,0 +1,49 @@
+{
+  "id": "erin-hills-18",
+  "course": "Erin Hills",
+  "hole": 18,
+  "par": 5,
+  "yardage": 663,
+  "wind": { "speed": 0, "dirDeg": 0 },
+  "expected": {
+    "favors": ["BOMBER"],
+    "rationale": "This is a deliberately contested pre-registration, matching the doc's own account of this hole as 'stubborn.' Pre-tournament coverage hyped the hole's 675-yard maximum setup as favoring the game's longest hitters (BOMBER). But post-tournament reporting on the 2017 U.S. Open complicates that: the common strategy at 18 was a conservative iron off the tee and a deliberate layup, treating it as a three-shot hole rather than a reach-in-two gamble, and winner Brooks Koepka's decisive stat was becoming the first player in U.S. Open history to hit over 80% of fairways AND over 80% of greens in one week — an accuracy record, not a pure power one. At this length, distance may genuinely stop compounding.",
+    "sources": [
+      "PGA.com, 'Why the 18th hole at Erin Hills could be a US Open history maker' (pre-tournament, BOMBER-leaning)",
+      "CBS Sports, 'U.S. Open 2017: Erin Hills will play as longest course for a major championship'",
+      "The Fried Egg, 'The rare fair fight: Erin Hills' (post-tournament analysis)",
+      "USA Today, 'LONG AND SHORT, KOEPKA RULED' (Koepka's fairways/greens accuracy record)"
+    ]
+  },
+  "approximations": [
+    "yardage varied 637-675 across tees/days during the 2017 U.S. Open; 663 used as a representative figure",
+    "no hole-specific scoring average was found (tournament-wide 2017 average was 73.14); plausibility check left inactive",
+    "treeless links terrain and downwind-favored bunker carries approximated with a wide corridor and estimated (not surveyed) bunker positions"
+  ],
+  "disagreement": "Deliberately pre-registered as contested (see expected.rationale), so this is the expected outcome, not a surprise. The observed STRAIGHT lean is, if anything, corroborated by the real 2017 U.S. Open: winner Brooks Koepka's decisive stat was a fairways+greens accuracy record, not pure power, and the common strategy at 18 was a conservative iron off the tee rather than a reach-in-two attempt -- both point away from the naive BOMBER framing this hole was hyped with pre-tournament. Mechanically, the same root cause as augusta-13 applies here too: on this hole's long 'always advance' shots, effort equals the chosen power fraction directly (independent of full carry), so archetypes face a similar per-shot dispersion tradeoff regardless of power stat, and BOMBER's larger base lateral coefficient converts its fewer-total-shots advantage into more off-fairway lies. Margin is tiny (0.05) and seed-unstable, so this reading isn't trusted either way -- consistent with the doc's own framing that this hole 'may be the model being right and the expectation being wrong.'",
+  "parcel": {
+    "id": "erin-hills-18",
+    "schemaVersion": "0.1.0",
+    "par": 5,
+    "corridorHalfWidth": 30,
+    "obHalfWidth": 70,
+    "pieceCap": 5,
+    "tray": [
+      { "shapeId": "green-large", "count": 1 },
+      { "shapeId": "bunker-coffin", "count": 1 },
+      { "shapeId": "rough-band", "count": 1 },
+      { "shapeId": "bunker-pot", "count": 2 }
+    ]
+  },
+  "design": {
+    "parcelId": "erin-hills-18",
+    "schemaVersion": "0.1.0",
+    "pieces": [
+      { "shapeId": "bunker-coffin", "x": 10, "y": 310, "rot": 90, "scale": 1 },
+      { "shapeId": "rough-band", "x": 0, "y": 560, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": -10, "y": 600, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": 8, "y": 645, "rot": 0, "scale": 1 },
+      { "shapeId": "green-large", "x": 0, "y": 650, "rot": 0, "scale": 1 }
+    ]
+  }
+}

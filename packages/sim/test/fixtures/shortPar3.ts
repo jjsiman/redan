@@ -1,16 +1,16 @@
 import type { Parcel, Piece } from "../../src/types.js";
+import { straightCorridor } from "../../src/terrain.js";
 
 /**
- * 150 yards, tight OB, a bunker guarding the front. Every archetype's full
- * carry clears 150 comfortably, so this is a one-shot-then-putt hole — the
- * doc's validation set found STRAIGHT and TOUCH within 0.01 of each other
- * on holes like this, since power is worthless.
+ * 150 yards, tight OB, a bunker guarding the front. Every golfer's full
+ * carry clears 150 comfortably, so this is a one-shot-then-putt hole —
+ * accuracy-driven traits and power-driven ones should land close together
+ * here, since power buys nothing.
  */
 export const parcel: Parcel = {
   id: "fixture-short-par3",
   par: 3,
-  corridorHalfWidth: 20,
-  obHalfWidth: 25,
+  corridor: straightCorridor(180, 20, 25),
   pieceCap: 2,
 };
 

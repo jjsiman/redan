@@ -1,0 +1,8 @@
+{
+  "parcelId": "05-drivable-four",
+  "schemaVersion": "0.2.0",
+  "pieces": [
+    { "shapeId": "green-small", "x": -20, "y": 280, "rot": 0, "scale": 1 },
+    { "shapeId": "bunker-pot", "x": -28, "y": 255, "rot": 0, "scale": 1 }
+  ]
+}

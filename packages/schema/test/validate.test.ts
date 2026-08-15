@@ -7,8 +7,10 @@ const parcel: Parcel = {
   id: "p1",
   schemaVersion: SCHEMA_VERSION,
   par: 4,
-  corridorHalfWidth: 22,
-  obHalfWidth: 40,
+  corridor: [
+    { y: 0, cx: 0, halfWidth: 22, obHalfWidth: 40 },
+    { y: 440, cx: 0, halfWidth: 22, obHalfWidth: 40 },
+  ],
   pieceCap: 2,
   tray: [
     { shapeId: "green-large", count: 1 },

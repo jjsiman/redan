@@ -1,13 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { elevationAt, elevationAt2D, gradientAt, lieAt, playsLikeDelta, ROLL_FACTORS } from "../src/terrain.js";
-import type { Parcel, Piece } from "../src/types.js";
+import {
+  compileCorridor,
+  corridorBends,
+  elevationAt,
+  elevationAt2D,
+  gradientAt,
+  lieAt,
+  playsLikeDelta,
+  ROLL_FACTORS,
+  straightCorridor,
+} from "../src/terrain.js";
+import type { CorridorStation, Parcel, Piece } from "../src/types.js";
 
 function makeParcel(overrides: Partial<Parcel> = {}): Parcel {
   return {
     id: "test",
     par: 4,
-    corridorHalfWidth: 20,
-    obHalfWidth: 40,
+    corridor: straightCorridor(200, 20, 40),
     pieceCap: 2,
     ...overrides,
   };
@@ -85,6 +94,17 @@ describe("ROLL_FACTORS", () => {
   });
 });
 
+describe("corridorBends", () => {
+  it("is false for a straight corridor and true once any station drifts more than 5 yards", () => {
+    expect(corridorBends(straightCorridor(300, 20, 40))).toBe(false);
+    const bent: CorridorStation[] = [
+      { x: 0, cy: 0, halfWidth: 20, obHalfWidth: 40 },
+      { x: 300, cy: 30, halfWidth: 20, obHalfWidth: 40 },
+    ];
+    expect(corridorBends(bent)).toBe(true);
+  });
+});
+
 describe("lieAt", () => {
   const pieces: Piece[] = [
     {
@@ -97,7 +117,7 @@ describe("lieAt", () => {
       footprint: { kind: "circle", radius: 10 },
     },
   ];
-  const terrain = { corridorHalfWidth: 20, obHalfWidth: 40, pieces };
+  const terrain = { corridor: compileCorridor(straightCorridor(200, 20, 40)), pieces };
 
   it("resolves OB beyond the OB half-width regardless of pieces", () => {
     expect(lieAt(terrain, { x: 50, y: 45 })).toBe("ob");
@@ -107,6 +127,14 @@ describe("lieAt", () => {
     expect(lieAt(terrain, { x: 100, y: 0 })).toBe("bunker");
     expect(lieAt(terrain, { x: 50, y: 5 })).toBe("fairway");
     expect(lieAt(terrain, { x: 50, y: 30 })).toBe("rough");
+  });
+
+  it("resolves OB past the back of the corridor's arc-length extent", () => {
+    // The old scalar-corridor model had no back boundary at all (only a
+    // lateral |y| test) — a ball 900 yards past the green still resolved
+    // "fairway". The bending-corridor model fixes that: past the last
+    // authored station is OB.
+    expect(lieAt(terrain, { x: 500, y: 0 })).toBe("ob");
   });
 
   it("respects rotation and scale on a rect footprint", () => {
@@ -121,9 +149,52 @@ describe("lieAt", () => {
         footprint: { kind: "rect", halfLength: 10, halfWidth: 2 },
       },
     ];
-    const rectTerrain = { corridorHalfWidth: 20, obHalfWidth: 40, pieces: rectPieces };
+    const rectTerrain = { corridor: compileCorridor(straightCorridor(200, 20, 40)), pieces: rectPieces };
     // Unrotated, unscaled this rect is long along x — rotated 90deg it's long along y.
     expect(lieAt(rectTerrain, { x: 0, y: 15 })).toBe("deep");
     expect(lieAt(rectTerrain, { x: 15, y: 0 })).toBe("fairway");
+  });
+
+  it("resolves a polygon footprint (a concave notch, not just its convex hull)", () => {
+    // A "C" shape opening toward +x: a point in the notch (inside the hull
+    // but outside the actual polygon) must NOT register as inside.
+    const notch: Piece[] = [
+      {
+        shapeId: "waste-area",
+        lieType: "bunker",
+        x: 50,
+        y: 0,
+        rot: 0,
+        scale: 1,
+        footprint: {
+          kind: "polygon",
+          points: [
+            { x: -10, y: -10 },
+            { x: 10, y: -10 },
+            { x: 10, y: -4 },
+            { x: 0, y: -4 },
+            { x: 0, y: 4 },
+            { x: 10, y: 4 },
+            { x: 10, y: 10 },
+            { x: -10, y: 10 },
+          ],
+        },
+      },
+    ];
+    const polyTerrain = { corridor: compileCorridor(straightCorridor(200, 20, 40)), pieces: notch };
+    expect(lieAt(polyTerrain, { x: 45, y: 0 })).toBe("bunker"); // inside the solid left bar
+    expect(lieAt(polyTerrain, { x: 55, y: 0 })).toBe("fairway"); // inside the notch, not the polygon
+  });
+
+  it("bends the fairway envelope with the corridor centerline", () => {
+    const bentCorridor: CorridorStation[] = [
+      { x: 0, cy: 0, halfWidth: 15, obHalfWidth: 40 },
+      { x: 100, cy: 40, halfWidth: 15, obHalfWidth: 40 },
+    ];
+    const bentTerrain = { corridor: compileCorridor(bentCorridor), pieces: [] };
+    // Halfway along the bend, the centerline itself has drifted to cy=20 —
+    // a point at the OLD y=0 straight line is well off the fairway now.
+    expect(lieAt(bentTerrain, { x: 50, y: 0 })).toBe("rough");
+    expect(lieAt(bentTerrain, { x: 50, y: 20 })).toBe("fairway");
   });
 });

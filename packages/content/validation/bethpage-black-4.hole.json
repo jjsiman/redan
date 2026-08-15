@@ -1,0 +1,56 @@
+{
+  "id": "bethpage-black-4",
+  "course": "Bethpage Black",
+  "hole": 4,
+  "par": 5,
+  "yardage": 517,
+  "scoringAverage": 4.657,
+  "wind": { "speed": 0, "dirDeg": 0 },
+  "expected": {
+    "favors": ["BOMBER"],
+    "rationale": "A.W. Tillinghast's 'Great Hazard' template hole: the defining decision is carrying the diagonal 'Glacier' cross-bunker complex to shorten or enable the approach. Golf.com's hole tour states plainly that 'big hitters will have the option to go for the green in two.' Most decisively, this has been the single easiest hole on the course in both U.S. Opens it has appeared in and the easiest hole at the 2019 PGA Championship — consistent with long hitters converting the carry into scoring chances.",
+    "sources": [
+      "Golf.com, 'Inside the Ryder Cup arena: Bethpage Black hole-by-hole tour'",
+      "Golf.com, 'PGA Championship 2019: The hardest, meanest, toughest holes at Bethpage Black, ranked!'",
+      "The Fried Egg, 'How to Play Bethpage Black's Fourth Hole at the Ryder Cup'",
+      "Golfweek, 'PGA Championship: Bethpage Black by the numbers'"
+    ]
+  },
+  "approximations": [
+    "scoring average (4.657) and yardage (517) both from the 2019 PGA Championship setup",
+    "the diagonal 'Glacier' cross-bunker complex is approximated as a single large coffin bunker, not its real angled geometry",
+    "a simple 3-point elevation profile approximates the hole's uphill grade, documented as playing 'practically like a par 4' for modern pros (uncalibrated coefficient — see sim README)"
+  ],
+  "disagreement": "Same root cause as augusta-13 (see that hole's note for the full mathematical explanation): STRAIGHT's base lateral-dispersion coefficient is far below every other archetype's, and the effort penalty isn't strong enough at this yardage to overturn that. Specific to this hole: BOMBER's raw carry advantage should mean fewer total shots to reach a reachable-in-two par 5, but BOMBER's wider dispersion means it finds off-fairway lies (rough/bunker/the Glacier cross-bunker) more often, and each such lie multiplies subsequent-shot dispersion via lieDispersionFactor -- eroding the stroke-count advantage a real bomber gets from simply covering more ground per swing. Field average (4.90) vs. published (4.66) is within the plausibility threshold, so the geometry encoding is not the suspect.",
+  "parcel": {
+    "id": "bethpage-black-4",
+    "schemaVersion": "0.1.0",
+    "par": 5,
+    "corridorHalfWidth": 26,
+    "obHalfWidth": 58,
+    "pieceCap": 6,
+    "tray": [
+      { "shapeId": "green-large", "count": 1 },
+      { "shapeId": "bunker-coffin", "count": 1 },
+      { "shapeId": "bunker-pot", "count": 3 },
+      { "shapeId": "rough-patch", "count": 1 }
+    ],
+    "elevationProfile": [
+      { "y": 0, "z": 0 },
+      { "y": 260, "z": 10 },
+      { "y": 517, "z": 28 }
+    ]
+  },
+  "design": {
+    "parcelId": "bethpage-black-4",
+    "schemaVersion": "0.1.0",
+    "pieces": [
+      { "shapeId": "bunker-coffin", "x": 0, "y": 260, "rot": 0, "scale": 1.4 },
+      { "shapeId": "bunker-pot", "x": -22, "y": 180, "rot": 0, "scale": 1 },
+      { "shapeId": "rough-patch", "x": 28, "y": 270, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": -10, "y": 500, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": 8, "y": 498, "rot": 0, "scale": 1 },
+      { "shapeId": "green-large", "x": 0, "y": 510, "rot": 0, "scale": 1 }
+    ]
+  }
+}

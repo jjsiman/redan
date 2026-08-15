@@ -1,0 +1,47 @@
+{
+  "id": "riviera-10",
+  "course": "Riviera Country Club",
+  "hole": 10,
+  "par": 4,
+  "yardage": 315,
+  "scoringAverage": 4.086,
+  "wind": { "speed": 0, "dirDeg": 0 },
+  "expected": {
+    "favors": ["BOMBER"],
+    "rationale": "Deliberately contested pre-registration. Quantitative strokes-gained analysis (Scott Fawcett/DECADE, cited via Golf Digest) finds going for the drivable green historically nets ~897-under vs. 130-over relative to laying up — a clear statistical edge for BOMBER. But Golf.com, The Fried Egg, and SI.com independently argue the small, elevated, false-fronted green was hardened specifically against power, with average drives of 280+ yards still only producing 53.9% GIR in one cited week. Registering BOMBER on the stronger quantitative signal, but flagging this as a real toss-up rather than a confident single pick.",
+    "sources": [
+      "Golf Digest, 'Why more players are going for the green at Riviera's 10th' (Scott Fawcett/DECADE data)",
+      "Golf.com, \"'I would have taken par on the tee'\"",
+      "The Fried Egg, 'Bringing Showtime Back: The 10th at Riviera'",
+      "SI.com, \"Riviera's 10th holds key in distance issue\""
+    ]
+  },
+  "approximations": [
+    "the green's near-right-angle (~45 degree) orientation to the fairway and its false front are not modeled by the sim's flat circular green primitive; represented only via a laterally offset, scaled-down green",
+    "the cross/layup bunker at ~199 yards is approximated as a single wide coffin bunker at an estimated, not surveyed, position"
+  ],
+  "disagreement": "Pre-registered as contested (see expected.rationale), so this outcome was anticipated rather than a clean model failure. Also consistent with the shared root cause on augusta-13: at this short 315-yard length, going for the green means high effort for everyone, and STRAIGHT's structurally lower base dispersion coefficient wins the resulting proximity contest even against a green some sources describe as favoring touch over power -- which is itself one of the two real published views on this hole. Field average (3.90) vs. published (4.09) is within the plausibility threshold.",
+  "parcel": {
+    "id": "riviera-10",
+    "schemaVersion": "0.1.0",
+    "par": 4,
+    "corridorHalfWidth": 25,
+    "obHalfWidth": 55,
+    "pieceCap": 4,
+    "tray": [
+      { "shapeId": "green-small", "count": 1 },
+      { "shapeId": "bunker-coffin", "count": 2 },
+      { "shapeId": "bunker-pot", "count": 1 }
+    ]
+  },
+  "design": {
+    "parcelId": "riviera-10",
+    "schemaVersion": "0.1.0",
+    "pieces": [
+      { "shapeId": "bunker-coffin", "x": -20, "y": 245, "rot": 90, "scale": 1 },
+      { "shapeId": "bunker-coffin", "x": 0, "y": 199, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": 35, "y": 310, "rot": 0, "scale": 1 },
+      { "shapeId": "green-small", "x": 25, "y": 305, "rot": 0, "scale": 0.85 }
+    ]
+  }
+}

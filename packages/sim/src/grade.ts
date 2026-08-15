@@ -1,16 +1,8 @@
-import type {
-  ArchetypeResult,
-  ArchetypeName,
-  GradeResult,
-  Parcel,
-  Piece,
-  ShotPath,
-  Wind,
-} from "./types.js";
+import type { GolferId, GolferResult, GradeResult, Parcel, Piece, ShotPath, Wind } from "./types.js";
 import type { Rng } from "./rng.js";
 import { createRng } from "./rng.js";
-import { ARCHETYPE_NAMES, ARCHETYPES } from "./archetypes.js";
-import { findGreen } from "./terrain.js";
+import { ROSTER, resolveTraits, BASE_STATS } from "./traits.js";
+import { compileCorridor, findGreen } from "./terrain.js";
 import { searchRoute } from "./route.js";
 import { SIM_VERSION } from "./version.js";
 
@@ -22,7 +14,7 @@ const PAR_TOLERANCE = 0.3;
  * (parcel, pieces, wind, seed) triple must grade identically in the
  * browser, Node, and an edge worker.
  *
- * `wind` is now wired into the shot model (flight.ts#resolveFlight) — the
+ * `wind` is wired into the shot model (flight.ts#resolveFlight) — the
  * yards-per-mph coefficients there are first-pass and uncalibrated, since no
  * wind coefficients survived the doc reconstruction.
  */
@@ -33,33 +25,37 @@ export function grade(parcel: Parcel, pieces: Piece[], wind: Wind, seed: number)
   }
   const greenCenter = { x: green.x, y: green.y };
   const terrain = {
-    corridorHalfWidth: parcel.corridorHalfWidth,
-    obHalfWidth: parcel.obHalfWidth,
-    pieces,
+    corridor: compileCorridor(parcel.corridor),
+    // Fixed (parcel-authored) terrain is checked after the player's own
+    // pieces, so it always wins where the two overlap — a player cannot pave
+    // over the trees in a dogleg's corner just by placing something on top.
+    pieces: [...pieces, ...(parcel.fixedRegions ?? [])],
   };
 
   const rng: Rng = createRng(seed);
 
-  const archetypes = {} as Record<ArchetypeName, ArchetypeResult>;
+  const golfers = {} as Record<GolferId, GolferResult>;
   const traces: ShotPath[] = [];
 
-  for (const name of ARCHETYPE_NAMES) {
-    const stats = ARCHETYPES[name];
-    const result = searchRoute(parcel, terrain, greenCenter, stats, wind, rng);
-    archetypes[name] = { mean: result.mean, sd: result.sd, route: result.route };
+  for (const golfer of ROSTER) {
+    const traits = resolveTraits(golfer);
+    const result = searchRoute(parcel, terrain, greenCenter, BASE_STATS, traits, wind, rng);
+    golfers[golfer.id] = { mean: result.mean, sd: result.sd, route: result.route };
     const totalStrokes = result.trace.reduce((sum, s) => sum + 1 + s.penaltyStrokes, 0);
-    traces.push({ archetype: name, shots: result.trace, totalStrokes });
+    traces.push({ golfer: golfer.id, shots: result.trace, totalStrokes });
   }
 
-  const means = ARCHETYPE_NAMES.map((n) => archetypes[n].mean);
-  const sds = ARCHETYPE_NAMES.map((n) => archetypes[n].sd);
+  const means = ROSTER.map((g) => golfers[g.id]!.mean);
+  const sds = ROSTER.map((g) => golfers[g.id]!.sd);
   const field = mean(means);
+  const sortedMeans = [...means].sort((a, b) => a - b);
   const spread = Math.max(...means) - Math.min(...means);
+  const contested = (sortedMeans[1] ?? sortedMeans[0]!) - sortedMeans[0]!;
   const sd = mean(sds);
   const routeSignatures = new Set(
-    ARCHETYPE_NAMES.map((n) => {
-      const r = archetypes[n].route;
-      return `${r.aimOffsetDeg}:${r.spin}:${r.power}:${r.laysUp}`;
+    ROSTER.map((g) => {
+      const r = golfers[g.id]!.route;
+      return `${r.aimLine}:${r.aimOffsetDeg}:${r.spin}:${r.power}:${r.laysUp}`;
     }),
   );
   const used = pieces.reduce((sum, p) => sum + (p.cost ?? 1), 0);
@@ -67,8 +63,8 @@ export function grade(parcel: Parcel, pieces: Piece[], wind: Wind, seed: number)
   const parOK = Math.abs(field - parcel.par) <= PAR_TOLERANCE;
 
   return {
-    archetypes,
-    metrics: { field, spread, sd, routes: routeSignatures.size, used, cap, parOK },
+    golfers,
+    metrics: { field, spread, sd, routes: routeSignatures.size, contested, used, cap, parOK },
     traces,
     simVersion: SIM_VERSION,
   };

@@ -1,0 +1,51 @@
+{
+  "id": "pinehurst-5",
+  "course": "Pinehurst No. 2",
+  "hole": 5,
+  "par": 5,
+  "yardage": 576,
+  "wind": { "speed": 0, "dirDeg": 0 },
+  "expected": {
+    "favors": ["SCRAMBLER"],
+    "rationale": "Pinehurst No. 2's defense is short-game recovery around turtleback greens and sandy wiregrass native areas rather than penal rough or water. During the actual 2014 U.S. Open, 70% of the field found the fairway but only 56% hit greens, and USGA/Sky Sports commentary explicitly ties scoring to 'scrambling ability... a varied short game with imagination and confidence.' This hole's false front, back-right fall-off, and wiregrass collection areas reward recovery over pure power or line accuracy.",
+    "sources": [
+      "Pinehurst.com, 'The Pinehurst No. 2 Restoration — A Hole-by-Hole Tour'",
+      "GolfPass, '2024 U.S. Open Golf Course Preview: Pinehurst No. 2 hole-by-hole guide'",
+      "Today's Golfer, 'Inside the US Open: My view from the ground at Pinehurst No.2'",
+      "USGA, '2014 USGA Open Championships By the Numbers'"
+    ]
+  },
+  "approximations": [
+    "no hole-specific scoring average found (tournament-wide 2014 average was 73.09); plausibility check left inactive",
+    "Pinehurst's sand/wiregrass native areas are modeled as `rough` lieType (0.80/1.52 factors) rather than the harsher `deep` primitive, to reflect that they are more recoverable than penal rough — an intentional fit for this hole, not a compromise",
+    "the turtleback green's crown and false front/back-right falloff are not modeled by the sim's flat circular green"
+  ],
+  "disagreement": "Same root cause as augusta-13. SCRAMBLER's advantage in this model is entirely in its recovery stat (0.92, easing lie penalties once already in trouble), but that only matters if an archetype actually ends up off the fairway; SCRAMBLER's base accuracy (0.55) and its resulting lateral coefficient (0.071) is still worse than STRAIGHT's (0.046), so STRAIGHT simply finds the wiregrass and bunkers less often in the first place and never needs the recovery bonus SCRAMBLER is built around. The sim currently has no representation of the turtleback green's crown/false-front, which is the real hole's actual mechanism for punishing anyone who is NOT scrambling-capable around the green -- that missing mechanic, not just the archetype math, is likely a real contributor here.",
+  "parcel": {
+    "id": "pinehurst-5",
+    "schemaVersion": "0.1.0",
+    "par": 5,
+    "corridorHalfWidth": 28,
+    "obHalfWidth": 60,
+    "pieceCap": 7,
+    "tray": [
+      { "shapeId": "green-large", "count": 1 },
+      { "shapeId": "rough-band", "count": 3 },
+      { "shapeId": "bunker-coffin", "count": 1 },
+      { "shapeId": "bunker-pot", "count": 2 }
+    ]
+  },
+  "design": {
+    "parcelId": "pinehurst-5",
+    "schemaVersion": "0.1.0",
+    "pieces": [
+      { "shapeId": "rough-band", "x": -35, "y": 280, "rot": 90, "scale": 1 },
+      { "shapeId": "rough-band", "x": 38, "y": 280, "rot": 90, "scale": 1 },
+      { "shapeId": "bunker-coffin", "x": -25, "y": 295, "rot": 90, "scale": 1 },
+      { "shapeId": "rough-band", "x": -18, "y": 560, "rot": 90, "scale": 0.8 },
+      { "shapeId": "bunker-pot", "x": 12, "y": 555, "rot": 0, "scale": 1 },
+      { "shapeId": "bunker-pot", "x": -12, "y": 548, "rot": 0, "scale": 1 },
+      { "shapeId": "green-large", "x": 0, "y": 570, "rot": 0, "scale": 0.85 }
+    ]
+  }
+}
