@@ -134,7 +134,31 @@ function playRound(
       x: flight.endpoint.x + aux * distanceError + apx * lateralError,
       y: flight.endpoint.y + auy * distanceError + apy * lateralError,
     };
-    const path = [...flight.path, carryLanding];
+    // flight.path samples the deterministic (noiseless) curve, ending at
+    // flight.endpoint; the actual carry lands at carryLanding = endpoint +
+    // execution noise. Blending the noise in with the same t^2 growth the
+    // curve itself uses (rather than tacking carryLanding on as an extra
+    // point) keeps the rendered flight one smooth arc ending at the real
+    // landing spot, instead of a smooth curve with a sudden kink at the end.
+    const noiseX = carryLanding.x - flight.endpoint.x;
+    const noiseY = carryLanding.y - flight.endpoint.y;
+    const lastIdx = flight.path.length - 1;
+    const path = flight.path.map((p, idx) => {
+      const t = idx / lastIdx;
+      const t2 = t * t;
+      return { x: p.x + noiseX * t2, y: p.y + noiseY * t2 };
+    });
+
+    // Roll and hazard-drop direction: the ball travels toward where it
+    // actually landed (carryLanding), not the pre-noise aim line (aux/auy,
+    // which is only the right frame for decomposing dispersion error above).
+    // Using the aim line here would roll the ball off at an angle the drawn
+    // curve didn't actually arrive from.
+    const travelDirX = carryLanding.x - pos.x;
+    const travelDirY = carryLanding.y - pos.y;
+    const travelLen = Math.hypot(travelDirX, travelDirY) || 1;
+    const tux = travelDirX / travelLen;
+    const tuy = travelDirY / travelLen;
 
     // Phase 3: hazard check on the fly, then ground roll, then a second
     // hazard check — a ball can roll from the fairway into a bunker, off a
@@ -145,15 +169,15 @@ function playRound(
     let penalty: number;
 
     if (carryLie === "water" || carryLie === "ob") {
-      const hazard = resolveHazardDrop(terrain, carryLanding, carryLie, aux, auy, pos, lie);
+      const hazard = resolveHazardDrop(terrain, carryLanding, carryLie, tux, tuy, pos, lie);
       finalPos = hazard.pos;
       finalLie = hazard.lie;
       penalty = hazard.penalty;
     } else {
-      const rolled = resolveRoll(parcel, carryLanding, { x: aux, y: auy }, carryLie);
+      const rolled = resolveRoll(parcel, carryLanding, { x: tux, y: tuy }, carryLie);
       const rolledLie = lieAt(terrain, rolled);
       if (rolledLie === "water" || rolledLie === "ob") {
-        const hazard = resolveHazardDrop(terrain, rolled, rolledLie, aux, auy, pos, lie);
+        const hazard = resolveHazardDrop(terrain, rolled, rolledLie, tux, tuy, pos, lie);
         finalPos = hazard.pos;
         finalLie = hazard.lie;
         penalty = hazard.penalty;
