@@ -15,7 +15,8 @@
     "test": "pnpm run typecheck && vitest run",
     "test:watch": "vitest",
     "lint": "eslint src test",
-    "preview": "pnpm run build && node scripts/preview.mjs"
+    "preview": "pnpm run build && node scripts/preview.mjs",
+    "generate-land": "node scripts/generate-land.mjs"
   },
   "dependencies": {
     "@redan/schema": "workspace:*",

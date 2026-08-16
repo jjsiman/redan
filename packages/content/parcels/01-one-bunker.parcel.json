@@ -6,7 +6,7 @@
     { "y": 0, "cx": 0, "halfWidth": 22, "obHalfWidth": 42 },
     { "y": 420, "cx": 0, "halfWidth": 22, "obHalfWidth": 42 }
   ],
-  "pieceCap": 2,
+  "pieceCap": 1,
   "tray": [
     { "shapeId": "green-large", "count": 1 },
     { "shapeId": "bunker-pot", "count": 1 }

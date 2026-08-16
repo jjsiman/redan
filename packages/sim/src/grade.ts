@@ -2,7 +2,7 @@ import type { GolferId, GolferResult, GradeResult, Parcel, Piece, ShotPath, Wind
 import type { Rng } from "./rng.js";
 import { createRng } from "./rng.js";
 import { ROSTER, resolveTraits, BASE_STATS } from "./traits.js";
-import { compileCorridor, findGreen } from "./terrain.js";
+import { compileTerrain, findGreen } from "./terrain.js";
 import { searchRoute } from "./route.js";
 import { SIM_VERSION } from "./version.js";
 
@@ -24,13 +24,7 @@ export function grade(parcel: Parcel, pieces: Piece[], wind: Wind, seed: number)
     throw new Error("grade(): design has no green piece placed");
   }
   const greenCenter = { x: green.x, y: green.y };
-  const terrain = {
-    corridor: compileCorridor(parcel.corridor),
-    // Fixed (parcel-authored) terrain is checked after the player's own
-    // pieces, so it always wins where the two overlap — a player cannot pave
-    // over the trees in a dogleg's corner just by placing something on top.
-    pieces: [...pieces, ...(parcel.fixedRegions ?? [])],
-  };
+  const terrain = compileTerrain(parcel, pieces);
 
   const rng: Rng = createRng(seed);
 
@@ -58,7 +52,12 @@ export function grade(parcel: Parcel, pieces: Piece[], wind: Wind, seed: number)
       return `${r.aimLine}:${r.aimOffsetDeg}:${r.spin}:${r.power}:${r.laysUp}`;
     }),
   );
-  const used = pieces.reduce((sum, p) => sum + (p.cost ?? 1), 0);
+  // The green is mandatory (grade() throws without one), so counting it here
+  // would tax every hole by a constant 1 regardless of restraint — `used`
+  // measures only what the player chose to spend on hazards. doc 5's third
+  // star ("material left over — the land did the work") is about that
+  // choice, not about paying for the one piece every design must have.
+  const used = pieces.reduce((sum, p) => sum + (p.lieType === "green" ? 0 : (p.cost ?? 1)), 0);
   const cap = parcel.pieceCap;
   const parOK = Math.abs(field - parcel.par) <= PAR_TOLERANCE;
 

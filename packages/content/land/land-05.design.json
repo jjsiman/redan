@@ -1,0 +1,13 @@
+{
+  "parcelId": "land-05",
+  "schemaVersion": "0.3.0",
+  "pieces": [
+    {
+      "shapeId": "green-large",
+      "x": 0,
+      "y": 219,
+      "rot": 0,
+      "scale": 1
+    }
+  ]
+}

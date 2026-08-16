@@ -6,8 +6,12 @@ import { armShape, disarm, rotateArmed } from "../editor/intents.js";
 /** Bottom tray strip (doc §6.4: "tray is a horizontal strip pinned to the bottom, under the thumb"). */
 export function mountTray(container: HTMLElement, store: Store): void {
   function render(): void {
-    const { parcel, design, armed } = store.getState();
+    const { parcel, design, armed, mode } = store.getState();
     container.replaceChildren();
+    // Land mode places the green by dragging, not arming from a tray — its
+    // "tray" is a single always-placed green, so there's nothing useful for
+    // this strip to show there.
+    if (mode === "land") return;
 
     for (const entry of parcel.tray) {
       const def = SHAPE_TABLE[entry.shapeId];

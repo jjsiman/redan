@@ -34,8 +34,13 @@ export function lieFactors(lie: LieType): LieFactors {
   return LIE_FACTORS[lie];
 }
 
-/** Point-in-shape test, applying the piece's rot (degrees) and scale about (x, y). */
-function containsPoint(piece: Piece, p: Vec2): boolean {
+/**
+ * Point-in-shape test, applying the piece's rot (degrees) and scale about
+ * (x, y). Exported (not just `lieAt`-internal) because fairway.ts needs the
+ * same containment test to cost hazards *before* a corridor/TerrainQuery
+ * exists to query lieAt against — one implementation, not two.
+ */
+export function pieceContainsPoint(piece: Piece, p: Vec2): boolean {
   const rad = (-piece.rot * Math.PI) / 180;
   const dx = p.x - piece.x;
   const dy = p.y - piece.y;
@@ -99,6 +104,23 @@ export interface TerrainQuery {
 }
 
 /**
+ * Builds the exact `TerrainQuery` a graded round is played against: the
+ * compiled corridor, plus the player's own pieces with `parcel.fixedRegions`
+ * appended *after* them so fixed (parcel-authored) terrain always wins an
+ * overlap — a player cannot pave over the trees in a dogleg's corner just by
+ * placing something on top. `grade()` and any renderer that wants "what you
+ * see is what's simulated" (rasterizing via `lieAt`) must both go through
+ * this function rather than each assembling the pieces array by hand — two
+ * independent assemblies are two chances to drift out of sync on ordering.
+ */
+export function compileTerrain(parcel: Parcel, pieces: Piece[]): TerrainQuery {
+  return {
+    corridor: compileCorridor(parcel.corridor),
+    pieces: [...pieces, ...(parcel.fixedRegions ?? [])],
+  };
+}
+
+/**
  * Resolves the lie at a point: past the corridor's arc-length extent is OB
  * first (this also fixes a bug the old scalar-corridor model had — a ball
  * far downrange of the green used to still resolve "fairway" since only
@@ -115,7 +137,7 @@ export function lieAt(terrain: TerrainQuery, p: Vec2): LieType {
 
   let resolved: LieType | null = null;
   for (const piece of terrain.pieces) {
-    if (containsPoint(piece, p)) resolved = piece.lieType;
+    if (pieceContainsPoint(piece, p)) resolved = piece.lieType;
   }
   if (resolved) return resolved;
 

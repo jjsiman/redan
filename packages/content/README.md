@@ -8,7 +8,13 @@ Five hand-authored example parcels. `01-one-bunker` and `04-water-and-hill` matc
 
 `04-water-and-hill` also carries an `elevationFeatures` mound guarding the front-left of the green, demonstrating `@redan/sim`'s 2D terrain (a mound that can actually redirect a rolling ball sideways, not just a centerline slope).
 
-`src/render.ts` is a dev-only diagnostic visualizer (not the doc's renderer surface interface): `renderHoleSvg` draws a parcel/design/result as an inline SVG hole diagram — the fairway as a proper ribbon following the corridor's bend (`@redan/sim`'s `offsetPolyline`), each golfer's *actual curved flight path* (not a straight line), fixed regions with a dashed outline to read as different in kind from player-placed pieces, plus shaded rings for any elevation features — and `describeResult` produces doc-§5-style star rating and coaching sentences. `scripts/preview.mjs` (`pnpm run preview`) renders all five example parcels into a single static HTML page.
+`src/render.ts` is a dev-only diagnostic visualizer (not the doc's renderer surface interface): `renderHoleSvg` draws a parcel/design/result as an inline SVG hole diagram — the fairway as a proper ribbon following the corridor's bend (`@redan/sim`'s `offsetPolyline`), each golfer's *actual curved flight path* (not a straight line), fixed regions with a dashed outline to read as different in kind from player-placed pieces, plus shaded rings for any elevation features — and `describeResult` produces doc-§5-style star rating and coaching sentences. `scripts/preview.mjs` (`pnpm run preview`) renders all five example parcels, plus the six land parcels below, into a single static HTML page.
+
+### Land parcels (`land/`) — seeded natural terrain, fairway generated
+
+Six parcels under `land/` (`land-01`..`land-06`, `scripts/generate-land.mjs --seed 1 --count 6`), for `apps/web`'s land mode: a fixed rectangle of natural terrain (`Parcel.landEnvelope` + `fixedRegions` drawn from `water-pond`/`water-creek`/`trees`/`native-area` + a gentle `elevationProfile`/`elevationFeatures`), varied par 3–5 (~150–560 yd), and **no hand-authored fairway** — `corridor` is deliberately `halfWidth: 0` (all-rough) so an ungraded land parcel is honest rather than accidentally all-fairway; `@redan/sim`'s `deriveFairway` (see its README) routes a real one live from wherever a design's green sits. Each parcel's tray is a single `green-large`, `pieceCap: 0` — the green never counts against the budget (`@redan/sim`'s `grade.ts`), so there's genuinely nothing to spend, which is why land mode caps at ★★ rather than pretending a third star is reachable.
+
+The generator is deterministic (same `--seed` → byte-identical JSON) and uses rejection sampling — after generating a candidate, it runs `deriveFairway` toward a few candidate green positions and discards the seed if none routes cleanly. `loadLandParcel`/`loadLandDesign` (`src/index.ts`) mirror `loadParcel`/`loadDesign`. Known simplification, stated rather than hidden: the par-to-length bands (`PAR_BANDS` in the generator) and the routing cost weights in `deriveFairway` are tuned by eyeballing generated output and checking that starting-design field averages land near their designed par, not against real holes — see `@redan/sim/README.md`'s calibration status.
 
 ### Real-hole validation harness — parked
 
@@ -24,13 +30,16 @@ parcels/
   04-water-and-hill.parcel.json  04-water-and-hill.design.json
   05-drivable-four.parcel.json   05-drivable-four.design.json
 
+land/
+  land-01.parcel.json ... land-06.parcel.json   (+ matching .design.json)
+
 validation/
   augusta-13.hole.json
   ... (16 real holes, one file each — geometry + expectation + citations bundled)
   _parked/   (the old harness code — see validation/README.md)
 ```
 
-`loadParcel(id)` / `loadDesign(id)` (`src/index.ts`) read the example parcels by `ParcelId`.
+`loadParcel(id)` / `loadDesign(id)` (`src/index.ts`) read the example parcels by `ParcelId`; `loadLandParcel(id)` / `loadLandDesign(id)` read the land parcels by `LandParcelId`.
 
 ## Development
 
@@ -39,5 +48,6 @@ pnpm install
 pnpm --filter @redan/content run build
 pnpm --filter @redan/content run test
 pnpm --filter @redan/content run lint
-pnpm --filter @redan/content run preview   # renders all 5 example parcels to out/preview.html
+pnpm --filter @redan/content run preview        # renders all 5 example + 6 land parcels to out/preview.html
+node scripts/generate-land.mjs --seed 1 --count 6   # regenerate land/ (deterministic — same seed, same output)
 ```

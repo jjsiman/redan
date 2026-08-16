@@ -2,21 +2,43 @@ import type { Point, Surface, TextOptions } from "./surface.js";
 
 /** The only file in this app that touches CanvasRenderingContext2D — see surface.ts's module doc. */
 export class Canvas2DSurface implements Surface {
+  private readonly canvas: HTMLCanvasElement;
   private readonly ctx: CanvasRenderingContext2D;
-  readonly width: number;
-  readonly height: number;
+  private dpr = 1;
+  width: number;
+  height: number;
 
   constructor(canvas: HTMLCanvasElement, width: number, height: number, dpr: number) {
-    this.width = width;
-    this.height = height;
-    canvas.width = Math.round(width * dpr);
-    canvas.height = Math.round(height * dpr);
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
+    this.canvas = canvas;
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Canvas2DSurface: 2d context unavailable");
-    ctx.scale(dpr, dpr);
     this.ctx = ctx;
+    this.width = 0;
+    this.height = 0;
+    this.resize(width, height, dpr);
+  }
+
+  resize(width: number, height: number, dpr: number): void {
+    if (width === this.width && height === this.height && dpr === this.dpr) return;
+    this.width = width;
+    this.height = height;
+    this.dpr = dpr;
+    this.canvas.width = Math.round(width * dpr);
+    this.canvas.height = Math.round(height * dpr);
+    this.canvas.style.width = `${width}px`;
+    this.canvas.style.height = `${height}px`;
+    // Reset before scaling — a fresh backing store starts at the identity
+    // transform, but resize() can be called on an already-scaled context.
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.ctx.imageSmoothingEnabled = false;
+  }
+
+  fillCell(topLeft: Point, sizePx: number, color: string): void {
+    const x = Math.round(topLeft.x);
+    const y = Math.round(topLeft.y);
+    const s = Math.round(sizePx);
+    this.ctx.fillStyle = color;
+    this.ctx.fillRect(x, y, s, s);
   }
 
   clear(color: string): void {

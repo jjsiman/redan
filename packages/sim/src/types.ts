@@ -90,12 +90,34 @@ export interface CorridorStation {
 }
 
 /**
+ * A rectangular land envelope for a hole meant to be routed by
+ * fairway.ts#deriveFairway rather than hand-authored: tee at the sim origin,
+ * extending `length` yards downrange and `halfWidth` yards to each side.
+ * Constant width — tapering is deferred (see fairway.ts's module doc).
+ * `length`/`halfWidth` are frame-invariant magnitudes (not directions), same
+ * as ElevationFeature's radius, so no rotation is needed crossing the
+ * portrait/sim boundary in @redan/schema's toSim.ts.
+ */
+export interface LandEnvelope {
+  length: number;
+  halfWidth: number;
+}
+
+/**
  * Terrain + tee + par + wind envelope. Does NOT include the green — the
  * player places the green as a piece, same as hazards.
  */
 export interface Parcel {
   id: string;
   par: number;
+  /**
+   * Present only on parcels meant to be routed by fairway.ts#deriveFairway
+   * (land mode) rather than graded with a hand-authored `corridor` directly.
+   * When present, `corridor` should still be a valid (if minimal) fallback —
+   * see fairway.ts's module doc for why a land parcel's authored corridor is
+   * deliberately all-rough, not all-fairway.
+   */
+  landEnvelope?: LandEnvelope;
   /**
    * The fairway/OB envelope as a sequence of stations along the hole,
    * tee-first. Must have >=2 stations and must extend (in arc-length) at

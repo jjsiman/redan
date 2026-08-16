@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "pnpm --filter @redan/web run dev",
     "build": "pnpm -r --if-present run build",
     "test": "pnpm -r --if-present run test",
     "lint": "pnpm -r --if-present run lint"

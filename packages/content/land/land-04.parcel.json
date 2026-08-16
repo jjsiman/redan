@@ -1,0 +1,75 @@
+{
+  "id": "land-04",
+  "schemaVersion": "0.3.0",
+  "par": 3,
+  "corridor": [
+    {
+      "y": 0,
+      "cx": 0,
+      "halfWidth": 0,
+      "obHalfWidth": 95
+    },
+    {
+      "y": 214,
+      "cx": 0,
+      "halfWidth": 0,
+      "obHalfWidth": 95
+    }
+  ],
+  "landEnvelope": {
+    "length": 214,
+    "halfWidth": 95
+  },
+  "fixedRegions": [
+    {
+      "shapeId": "water-pond",
+      "x": 53,
+      "y": 48,
+      "rot": 0,
+      "scale": 1
+    },
+    {
+      "shapeId": "native-area",
+      "x": 62,
+      "y": 114,
+      "rot": 90,
+      "scale": 1
+    },
+    {
+      "shapeId": "water-pond",
+      "x": 64,
+      "y": 137,
+      "rot": 0,
+      "scale": 1
+    }
+  ],
+  "pieceCap": 0,
+  "tray": [
+    {
+      "shapeId": "green-large",
+      "count": 1
+    }
+  ],
+  "elevationProfile": [
+    {
+      "y": 0,
+      "z": 0
+    },
+    {
+      "y": 107,
+      "z": 17
+    },
+    {
+      "y": 214,
+      "z": 5
+    }
+  ],
+  "elevationFeatures": [
+    {
+      "x": -13,
+      "y": 51,
+      "radius": 21,
+      "height": -2
+    }
+  ]
+}

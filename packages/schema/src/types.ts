@@ -49,6 +49,19 @@ export interface PortraitCorridorStation {
 }
 
 /**
+ * Mirrors @redan/sim's `LandEnvelope` exactly — `length`/`halfWidth` are
+ * frame-invariant magnitudes (a distance, not a direction), so this crosses
+ * toSim.ts unrotated, same as `ElevationFeature`'s radius. Its presence on a
+ * `Parcel` marks it as a land-mode parcel meant to be routed through
+ * `@redan/sim`'s `deriveFairway` rather than graded from its authored
+ * `corridor` directly.
+ */
+export interface PortraitLandEnvelope {
+  length: number;
+  halfWidth: number;
+}
+
+/**
  * Terrain + tee + par + tray envelope, in the portrait frame. Does not
  * include the green — per doc 1, the player places the green too, same as
  * hazards, as one of the tray pieces.
@@ -63,6 +76,14 @@ export interface Parcel {
    * every placed piece including the green — see @redan/sim's `terrain.ts`.
    */
   corridor: PortraitCorridorStation[];
+  /**
+   * Present only on land-mode parcels (see `PortraitLandEnvelope`'s doc).
+   * When set, `corridor` above should still be a valid fallback — land
+   * parcels author it with `halfWidth: 0` so an ungraded land parcel is
+   * honestly all-rough rather than accidentally all-fairway (see
+   * @redan/sim's fairway.ts module doc for why equal widths would be wrong).
+   */
+  landEnvelope?: PortraitLandEnvelope;
   /**
    * Parcel-authored terrain (trees, native area) the player cannot remove or
    * place over and that never counts against `pieceCap` — placed the same

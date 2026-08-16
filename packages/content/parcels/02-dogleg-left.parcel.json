@@ -13,7 +13,7 @@
   "fixedRegions": [
     { "shapeId": "trees", "x": 0, "y": 235, "rot": 90, "scale": 1 }
   ],
-  "pieceCap": 2,
+  "pieceCap": 1,
   "tray": [
     { "shapeId": "green-large", "count": 1 },
     { "shapeId": "bunker-pot", "count": 1 }

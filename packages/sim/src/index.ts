@@ -17,6 +17,8 @@ export {
   lieFactors,
   findGreen,
   compileCorridor,
+  compileTerrain,
+  pieceContainsPoint,
   straightCorridor,
   corridorBends,
   elevationAt,
@@ -26,6 +28,8 @@ export {
   ROLL_FACTORS,
 } from "./terrain.js";
 export type { CompiledCorridor, TerrainQuery } from "./terrain.js";
+export { deriveFairway } from "./fairway.js";
+export type { FairwaySpec } from "./fairway.js";
 export { resolveFlight, resolveRoll } from "./flight.js";
 export type { FlightResult } from "./flight.js";
 export {

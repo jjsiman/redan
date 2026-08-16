@@ -7,5 +7,9 @@
  * Parcel.corridor: PortraitCorridorStation[], plus the new optional
  * Parcel.fixedRegions — old parcel JSON needs migrating (see terrain.ts's
  * straightCorridor for the mechanical one-line equivalent).
+ *
+ * 0.3.0: new optional Parcel.landEnvelope (PortraitLandEnvelope) marks a
+ * land-mode parcel meant to be routed through @redan/sim's deriveFairway.
+ * Additive — existing parcel JSON without it is still valid.
  */
-export const SCHEMA_VERSION = "0.2.0";
+export const SCHEMA_VERSION = "0.3.0";

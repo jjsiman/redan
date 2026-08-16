@@ -1,0 +1,81 @@
+{
+  "id": "land-02",
+  "schemaVersion": "0.3.0",
+  "par": 4,
+  "corridor": [
+    {
+      "y": 0,
+      "cx": 0,
+      "halfWidth": 0,
+      "obHalfWidth": 86
+    },
+    {
+      "y": 271,
+      "cx": 0,
+      "halfWidth": 0,
+      "obHalfWidth": 86
+    }
+  ],
+  "landEnvelope": {
+    "length": 271,
+    "halfWidth": 86
+  },
+  "fixedRegions": [
+    {
+      "shapeId": "water-creek",
+      "x": -59,
+      "y": 88,
+      "rot": 0,
+      "scale": 1
+    },
+    {
+      "shapeId": "trees",
+      "x": -26,
+      "y": 195,
+      "rot": 0,
+      "scale": 1
+    },
+    {
+      "shapeId": "trees",
+      "x": 33,
+      "y": 150,
+      "rot": 0,
+      "scale": 1
+    }
+  ],
+  "pieceCap": 0,
+  "tray": [
+    {
+      "shapeId": "green-large",
+      "count": 1
+    }
+  ],
+  "elevationProfile": [
+    {
+      "y": 0,
+      "z": 0
+    },
+    {
+      "y": 136,
+      "z": 8
+    },
+    {
+      "y": 271,
+      "z": 2
+    }
+  ],
+  "elevationFeatures": [
+    {
+      "x": 28,
+      "y": 243,
+      "radius": 19,
+      "height": 8
+    },
+    {
+      "x": -36,
+      "y": 106,
+      "radius": 21,
+      "height": -4
+    }
+  ]
+}

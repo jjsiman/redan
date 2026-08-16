@@ -6,7 +6,7 @@
     { "y": 0, "cx": 0, "halfWidth": 24, "obHalfWidth": 45 },
     { "y": 440, "cx": 0, "halfWidth": 24, "obHalfWidth": 45 }
   ],
-  "pieceCap": 2,
+  "pieceCap": 1,
   "tray": [
     { "shapeId": "green-large", "count": 1 },
     { "shapeId": "water-pond", "count": 1 }

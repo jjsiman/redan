@@ -3,7 +3,8 @@ import type { Store } from "../editor/state.js";
 /** Verdict panel: stars + doc §5's plain-language coaching sentences, plus the raw metric strip and any placement error message. */
 export function mountVerdict(container: HTMLElement, store: Store): void {
   function render(): void {
-    const { result, verdict, grading, message, parcel } = store.getState();
+    const { result, verdict, grading, message, parcel, mode } = store.getState();
+    const isLand = mode === "land";
     container.replaceChildren();
 
     if (message) {
@@ -29,10 +30,24 @@ export function mountVerdict(container: HTMLElement, store: Store): void {
       return;
     }
 
+    // Land mode's tray is the green alone, which grade.ts never counts
+    // against the budget (see packages/sim's grade.ts#grade) — there is
+    // nothing to hold back, so the doc §5 restraint star doesn't apply here.
+    // maxStars keeps an unearned-but-possible third star from ever being
+    // *shown* as withheld — it should never appear at all in this mode.
+    const maxStars = isLand ? 2 : 3;
     const stars = document.createElement("p");
     stars.className = "stars";
-    stars.textContent = "★".repeat(verdict.stars) + "☆".repeat(3 - verdict.stars);
+    stars.textContent = "★".repeat(Math.min(verdict.stars, maxStars)) + "☆".repeat(maxStars - Math.min(verdict.stars, maxStars));
     container.appendChild(stars);
+
+    if (isLand) {
+      const note = document.createElement("p");
+      note.className = "verdict-note";
+      note.textContent =
+        "Land mode has no material budget — the third star is restraint, and here there's nothing to hold back.";
+      container.appendChild(note);
+    }
 
     const list = document.createElement("ul");
     list.className = "coaching";
@@ -75,9 +90,14 @@ export function mountVerdict(container: HTMLElement, store: Store): void {
     table.appendChild(tbody);
     container.appendChild(table);
 
+    // "used X/cap" reads as a puzzle to solve in land mode (it's always
+    // 0/0, since the green is free and there's no other tray item) —
+    // showing the raw fraction there just invites "why can't I get three
+    // stars" instead of explaining it, which the note above already does.
+    const budget = isLand ? "green only" : `used ${m.used}/${m.cap}`;
     const metrics = document.createElement("p");
     metrics.className = "metrics-strip";
-    metrics.textContent = `par ${parcel.par} · field ${m.field.toFixed(2)} · spread ${m.spread.toFixed(2)} · contested ${m.contested.toFixed(2)} · σ ${m.sd.toFixed(2)} · used ${m.used}/${m.cap}`;
+    metrics.textContent = `par ${parcel.par} · field ${m.field.toFixed(2)} · spread ${m.spread.toFixed(2)} · contested ${m.contested.toFixed(2)} · σ ${m.sd.toFixed(2)} · ${budget}`;
     container.appendChild(metrics);
   }
 

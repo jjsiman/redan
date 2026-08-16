@@ -3,9 +3,19 @@
 import { writeFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { grade, ROSTER, SIM_VERSION } from "@redan/sim";
-import { toSimInputs, validateDesign, SCHEMA_VERSION } from "@redan/schema";
-import { PARCEL_IDS, loadParcel, loadDesign, renderHoleSvg, renderElevationSvg, describeResult } from "../dist/index.js";
+import { deriveFairway, findGreen, grade, ROSTER, SIM_VERSION } from "@redan/sim";
+import { toPortraitCorridorStation, toSimInputs, validateDesign, SCHEMA_VERSION } from "@redan/schema";
+import {
+  PARCEL_IDS,
+  LAND_PARCEL_IDS,
+  loadParcel,
+  loadDesign,
+  loadLandParcel,
+  loadLandDesign,
+  renderHoleSvg,
+  renderElevationSvg,
+  describeResult,
+} from "../dist/index.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SEED = 20260814;
@@ -27,14 +37,35 @@ function starRow(stars) {
   return `<span class="stars" aria-label="${stars} of 3 stars"><span class="stars-filled">${filled}</span><span class="stars-empty">${empty}</span></span>`;
 }
 
-function renderCard(id) {
-  const parcel = loadParcel(id);
-  const design = loadDesign(id);
+function renderCard(id, parcel, design) {
   const validation = validateDesign(parcel, design);
   const { parcel: simParcel, pieces } = toSimInputs(parcel, design);
-  const result = grade(simParcel, pieces, { speed: 0, dirDeg: 0 }, SEED);
+  // Land parcels carry no hand-authored fairway (Parcel.landEnvelope
+  // present, corridor deliberately all-rough) — route one live from the
+  // design's green before grading, same as apps/web's land mode does.
+  const green = findGreen(pieces);
+  const routedParcel = simParcel.landEnvelope && green ? deriveFairway(simParcel, { x: green.x, y: green.y }) : simParcel;
+  const result = grade(routedParcel, pieces, { speed: 0, dirDeg: 0 }, SEED);
   const verdict = describeResult(parcel, result);
   const elevationSvg = renderElevationSvg(parcel);
+  // renderHoleSvg draws parcel.corridor as authored, which for a land
+  // parcel is deliberately all-rough — swap in the derived (portrait) one
+  // just for display, so the preview actually shows the routed fairway
+  // rather than nothing. obHalfWidth is overridden back to the real land
+  // half-width rather than kept at deriveFairway's 400yd sentinel — the
+  // sim no longer uses the corridor's own obHalfWidth as the land boundary
+  // (see fairway.ts's module doc), but the preview's OB ribbon still reads
+  // one directly, so left at the sentinel it would blow the SVG's bounds
+  // out to an absurd size.
+  const displayParcel = simParcel.landEnvelope
+    ? {
+        ...parcel,
+        corridor: routedParcel.corridor.map((s) => ({
+          ...toPortraitCorridorStation(s),
+          obHalfWidth: simParcel.landEnvelope.halfWidth,
+        })),
+      }
+    : parcel;
 
   const rows = ROSTER.map((golfer) => {
     const g = result.golfers[golfer.id];
@@ -60,7 +91,7 @@ function renderCard(id) {
 
   <div class="card-body">
     <div class="diagram">
-      ${renderHoleSvg(parcel, design, result)}
+      ${renderHoleSvg(displayParcel, design, result)}
       ${elevationSvg ?? ""}
     </div>
 
@@ -95,7 +126,8 @@ function renderCard(id) {
 </article>`;
 }
 
-const cards = PARCEL_IDS.map(renderCard).join("\n\n");
+const cards = PARCEL_IDS.map((id) => renderCard(id, loadParcel(id), loadDesign(id))).join("\n\n");
+const landCards = LAND_PARCEL_IDS.map((id) => renderCard(id, loadLandParcel(id), loadLandDesign(id))).join("\n\n");
 
 const html = `<!doctype html>
 <html lang="en">
@@ -403,6 +435,16 @@ footer.notes code {
 
   <div class="cards">
     ${cards}
+  </div>
+
+  <header class="top">
+    <p class="eyebrow-top">Land mode</p>
+    <h1>Generated land, routed live</h1>
+    <p class="lede">Seeded natural parcels (<code>scripts/generate-land.mjs</code>) with no hand-authored fairway — each graded here with <code>@redan/sim</code>'s <code>deriveFairway</code> routing a corridor from the tee to the design's starting green, the same step <code>apps/web</code>'s land mode runs on every drag.</p>
+  </header>
+
+  <div class="cards">
+    ${landCards}
   </div>
 
   <footer class="notes">

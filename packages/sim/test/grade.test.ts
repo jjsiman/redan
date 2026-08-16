@@ -37,10 +37,23 @@ describe("grade — pipeline sanity", () => {
     expect(() => grade(straight.parcel, [], NO_WIND, SEED)).toThrow(/green/);
   });
 
-  it("computes used/cap from placed piece cost, not counting fixedRegions", () => {
-    const result = grade(straight.parcel, straight.pieces, NO_WIND, SEED);
-    expect(result.metrics.used).toBe(straight.pieces.length);
-    expect(result.metrics.cap).toBe(straight.parcel.pieceCap);
+  it("computes used/cap from placed hazard cost, counting neither the green nor fixedRegions", () => {
+    // The green is mandatory (every design must have exactly one), so it
+    // must never tax the budget — dogleg.pieces is just a green, and
+    // dogleg.parcel.fixedRegions has an un-removable tree region, neither of
+    // which the player "spent" anything on.
+    const greenOnly = grade(dogleg.parcel, dogleg.pieces, NO_WIND, SEED);
+    expect(greenOnly.metrics.used).toBe(0);
+    expect(greenOnly.metrics.cap).toBe(dogleg.parcel.pieceCap);
+
+    // A real hazard piece placed alongside the green does count.
+    const withBunker = grade(
+      dogleg.parcel,
+      [...dogleg.pieces, { shapeId: "bunker-pot", lieType: "bunker", x: 350, y: 12, rot: 0, scale: 1, footprint: { kind: "circle", radius: 6 } }],
+      NO_WIND,
+      SEED,
+    );
+    expect(withBunker.metrics.used).toBe(1);
   });
 });
 

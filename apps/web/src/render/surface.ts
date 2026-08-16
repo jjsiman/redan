@@ -28,10 +28,26 @@ export interface TextOptions {
 export interface Surface {
   width: number;
   height: number;
+  /**
+   * Resizes the backing store in place, early-returning when `width`/
+   * `height`/`dpr` haven't changed. Land mode reuses one `Surface` across a
+   * green drag instead of constructing a fresh one per render — a fresh
+   * `Canvas2DSurface` reallocates the canvas backing store and resets all
+   * context state on every call, which is one of the concrete reasons a
+   * naive per-render surface can't hold 60fps on pointermove.
+   */
+  resize(width: number, height: number, dpr: number): void;
   clear(color: string): void;
   fillPolygon(points: Point[], color: string): void;
   strokePolyline(points: Point[], color: string, width: number, dash?: number[]): void;
   fillCircle(center: Point, radius: number, color: string): void;
   strokeCircle(center: Point, radius: number, color: string, width: number, dash?: number[]): void;
   drawText(text: string, at: Point, opts?: TextOptions): void;
+  /**
+   * Fills one screen-space rect of exactly `sizePx` px at top-left corner
+   * `topLeft` — the doc §6.4/§8.2 pixel-grid primitive, land mode's cell
+   * renderer (`render/grid.ts`). Integer-snapped by the implementation so
+   * cells tile with no seams or antialiasing fringe.
+   */
+  fillCell(topLeft: Point, sizePx: number, color: string): void;
 }

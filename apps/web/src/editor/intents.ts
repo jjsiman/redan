@@ -2,7 +2,7 @@ import type { Vec2 } from "@redan/sim";
 import { grade, describeResultFromGolfers } from "@redan/sim";
 import { resolveShape, toSimInputs, SHAPE_TABLE } from "@redan/schema";
 import type { Parcel } from "@redan/schema";
-import { cloneDesign, placedCount, trayRemaining, type Store } from "./state.js";
+import { cloneDesign, placedCount, trayRemaining, usedCost, type Store } from "./state.js";
 
 /**
  * Every editor action goes through one of these — captured as an intent
@@ -59,8 +59,11 @@ export function placeAt(store: Store, at: Vec2): void {
     store.setState({ armed: null, message: `No "${armed.shapeId}" left in the tray.` });
     return;
   }
-  const cost = resolveShape(armed.shapeId).cost;
-  const used = design.pieces.reduce((sum, p) => sum + resolveShape(p.shapeId).cost, 0);
+  // Mirrors grade.ts#grade's `used`: the green never counts against the
+  // budget, so placing one never needs a cap check.
+  const armedDef = resolveShape(armed.shapeId);
+  const cost = armedDef.lieType === "green" ? 0 : armedDef.cost;
+  const used = usedCost(design, resolveShape);
   if (used + cost > parcel.pieceCap) {
     store.setState({ message: `Placing this would exceed the piece budget (${used + cost}/${parcel.pieceCap}).` });
     return;

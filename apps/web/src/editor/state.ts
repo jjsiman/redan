@@ -6,7 +6,21 @@ export interface ArmedPiece {
   rot: number;
 }
 
+/**
+ * "tray" is the existing shape-placement editor (place a green and hazards
+ * from a tray onto a hand-authored corridor). "land" is the green-only
+ * editor over generated natural parcels (`@redan/content`'s `land/*`): the
+ * fairway is derived live from wherever the green sits (`@redan/sim`'s
+ * `deriveFairway`, via `render/grid.ts`), so there is no tray beyond the
+ * green itself. The two share this store/Test-button/verdict-panel
+ * scaffolding but use different intents (`editor/intents.ts` vs.
+ * `editor/land.ts`) and renderers (`render/parcel.ts#drawHole` vs.
+ * `render/grid.ts`).
+ */
+export type EditorMode = "tray" | "land";
+
 export interface EditorState {
+  mode: EditorMode;
   parcelId: string;
   parcel: Parcel;
   design: Design;
@@ -59,8 +73,21 @@ export function trayRemaining(parcel: Parcel, design: Design, shapeId: string): 
   return entry.count - placedCount(design, shapeId);
 }
 
-export function usedCost(parcel: Parcel, design: Design, costOf: (shapeId: string) => number): number {
-  return design.pieces.reduce((sum, p) => sum + costOf(p.shapeId), 0);
+/**
+ * Sums placed-piece cost against the budget, excluding the green — mirrors
+ * @redan/sim's grade.ts#grade: every design must have exactly one green, so
+ * counting it would tax every hole by a constant 1 rather than measuring
+ * restraint. `resolve` is `@redan/schema`'s `resolveShape` at call sites;
+ * threaded through as a param so this file doesn't need a schema import.
+ */
+export function usedCost(
+  design: Design,
+  resolve: (shapeId: string) => { cost: number; lieType: string },
+): number {
+  return design.pieces.reduce((sum, p) => {
+    const def = resolve(p.shapeId);
+    return def.lieType === "green" ? sum : sum + def.cost;
+  }, 0);
 }
 
 export type { PlacedShape };

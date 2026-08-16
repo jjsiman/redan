@@ -107,6 +107,18 @@ export const SHAPE_TABLE: Record<string, ShapeDef> = {
     cost: 1,
     label: "Native area (fixed region)",
   },
+  // Land mode's fixed OB boundary (fairway.ts#deriveFairway's `obBands`) —
+  // never player-placed, always parcel-authored via fixedRegions. Not sized
+  // meaningfully here: deriveFairway constructs these pieces directly with
+  // its own halfLength/halfWidth per placement, so this table entry exists
+  // only so the shapeId resolves (e.g. for the dev SVG preview's color
+  // lookup by lieType) rather than as an authoring default.
+  "ob-band": {
+    lieType: "ob",
+    footprint: { kind: "rect", halfLength: 260, halfWidth: 100 },
+    cost: 1,
+    label: "Out of bounds (fixed region)",
+  },
 };
 
 export function resolveShape(shapeId: string): ShapeDef {

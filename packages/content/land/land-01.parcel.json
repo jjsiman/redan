@@ -1,0 +1,68 @@
+{
+  "id": "land-01",
+  "schemaVersion": "0.3.0",
+  "par": 3,
+  "corridor": [
+    {
+      "y": 0,
+      "cx": 0,
+      "halfWidth": 0,
+      "obHalfWidth": 70
+    },
+    {
+      "y": 194,
+      "cx": 0,
+      "halfWidth": 0,
+      "obHalfWidth": 70
+    }
+  ],
+  "landEnvelope": {
+    "length": 194,
+    "halfWidth": 70
+  },
+  "fixedRegions": [
+    {
+      "shapeId": "native-area",
+      "x": -23,
+      "y": 161,
+      "rot": 90,
+      "scale": 1
+    },
+    {
+      "shapeId": "trees",
+      "x": 52,
+      "y": 92,
+      "rot": 0,
+      "scale": 1
+    }
+  ],
+  "pieceCap": 0,
+  "tray": [
+    {
+      "shapeId": "green-large",
+      "count": 1
+    }
+  ],
+  "elevationProfile": [
+    {
+      "y": 0,
+      "z": 0
+    },
+    {
+      "y": 97,
+      "z": 0
+    },
+    {
+      "y": 194,
+      "z": 0
+    }
+  ],
+  "elevationFeatures": [
+    {
+      "x": -8,
+      "y": 65,
+      "radius": 17,
+      "height": 2
+    }
+  ]
+}

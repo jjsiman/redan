@@ -1,7 +1,7 @@
 import type { Design, Parcel, PortraitCorridorStation, RegionShape } from "@redan/schema";
 import type { GolferId, GradeResult, Shot, Vec2 } from "@redan/sim";
 import { describeResultFromGolfers, offsetPolyline } from "@redan/sim";
-import { SHAPE_TABLE } from "@redan/schema";
+import { SHAPE_TABLE, toPortraitPoint } from "@redan/schema";
 
 /**
  * Dev-only diagnostic visualizer: renders a parcel + design + GradeResult as
@@ -98,11 +98,6 @@ function markerPath(shape: "circle" | "square" | "triangle" | "diamond", cx: num
     case "diamond":
       return `<polygon points="${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}" />`;
   }
-}
-
-/** Inverse of @redan/schema's toSimPoint: sim (x=downrange, y=lateral) -> portrait (x=lateral, y=downrange). */
-function toPortraitPoint(sim: Vec2): Vec2 {
-  return { x: -sim.y, y: sim.x };
 }
 
 interface Frame {

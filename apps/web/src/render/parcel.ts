@@ -1,5 +1,5 @@
 import type { Design, Parcel, PlacedShape, PortraitCorridorStation, RegionShape } from "@redan/schema";
-import { SHAPE_TABLE } from "@redan/schema";
+import { SHAPE_TABLE, toPortraitPoint } from "@redan/schema";
 import type { GolferId, Shot, Vec2 } from "@redan/sim";
 import { offsetPolyline } from "@redan/sim";
 import type { Point, Surface } from "./surface.js";
@@ -66,6 +66,28 @@ export interface Frame {
   height: number;
 }
 
+/**
+ * Fixed bounds for land mode, derived from `parcel.landEnvelope` alone —
+ * deliberately NOT from the design (unlike `computeBounds` above). Dragging
+ * the green must never resize the frame mid-drag: `worldToScreen`'s scale
+ * depends on `frame.height`, so a bounds change while the pointer is down
+ * would rescale the scene under the cursor and desync the next
+ * `screenToWorld` from where the player is actually pointing. Falls back to
+ * `computeBounds` (empty design) if the parcel somehow has no land envelope.
+ */
+export function computeLandBounds(parcel: Parcel): Bounds {
+  const land = parcel.landEnvelope;
+  if (!land) {
+    return computeBounds(parcel, { parcelId: parcel.id, schemaVersion: parcel.schemaVersion, pieces: [] });
+  }
+  return {
+    minX: -land.halfWidth - MARGIN_YARDS,
+    minY: -MARGIN_YARDS,
+    maxX: land.halfWidth + MARGIN_YARDS,
+    maxY: land.length + MARGIN_YARDS,
+  };
+}
+
 export function makeFrame(bounds: Bounds): Frame {
   return {
     bounds,
@@ -96,7 +118,8 @@ export function snapToGrid(p: Vec2): Vec2 {
   return { x: snap(p.x), y: snap(p.y) };
 }
 
-const TERRAIN_COLORS: Record<string, string> = {
+/** Exported for render/grid.ts's cell rasterizer, which colors by the same `lieType`. */
+export const TERRAIN_COLORS: Record<string, string> = {
   fairway: "#bcd9a0",
   rough: "#93ab77",
   green: "#dcefc0",
@@ -170,13 +193,25 @@ const GOLFER_COLORS: Record<string, string> = {
   "iron-man": "#8a5a2b",
 };
 
-function drawTrace(surface: Surface, frame: Frame, golfer: GolferId, shots: Shot[]): void {
+function drawTeeMarker(surface: Surface, frame: Frame, tee: Vec2): void {
+  const teePx = worldToScreen(frame, tee);
+  surface.fillPolygon(
+    [
+      { x: teePx.x - 4, y: teePx.y },
+      { x: teePx.x + 4, y: teePx.y },
+      { x: teePx.x, y: teePx.y - 7 },
+    ],
+    "#171a12",
+  );
+}
+
+/** Exported for render/grid.ts's land-mode overlay, which draws traces over the rasterized cells the same way drawHole draws them over the vector fairway. */
+export function drawTrace(surface: Surface, frame: Frame, golfer: GolferId, shots: Shot[]): void {
   const color = GOLFER_COLORS[golfer] ?? "#666";
-  const toPortrait = (v: Vec2): Vec2 => ({ x: -v.y, y: v.x });
 
   for (const shot of shots) {
-    const flight = [toPortrait(shot.from), ...(shot.path ?? []).map(toPortrait)];
-    const landing = toPortrait(shot.to);
+    const flight = [toPortraitPoint(shot.from), ...(shot.path ?? []).map(toPortraitPoint)];
+    const landing = toPortraitPoint(shot.to);
     const points = polygonScreenPoints(frame, shot.penaltyStrokes > 0 ? flight : [...flight, landing]);
     surface.strokePolyline(points, "#fbfbf5", 3, []);
     surface.strokePolyline(points, color, 1.4, shot.penaltyStrokes > 0 ? [4, 3] : []);
@@ -215,16 +250,7 @@ export function drawHole(surface: Surface, frame: Frame, parcel: Parcel, design:
   for (const piece of parcel.fixedRegions ?? []) drawPiece(surface, frame, piece, true);
   for (const piece of design.pieces) drawPiece(surface, frame, piece, false);
 
-  const tee = centerline[0] ?? { x: 0, y: 0 };
-  const teePx = worldToScreen(frame, tee);
-  surface.fillPolygon(
-    [
-      { x: teePx.x - 4, y: teePx.y },
-      { x: teePx.x + 4, y: teePx.y },
-      { x: teePx.x, y: teePx.y - 7 },
-    ],
-    "#171a12",
-  );
+  drawTeeMarker(surface, frame, centerline[0] ?? { x: 0, y: 0 });
 
   for (const trace of opts.traces ?? []) drawTrace(surface, frame, trace.golfer, trace.shots);
 
@@ -236,4 +262,27 @@ export function drawHole(surface: Surface, frame: Frame, parcel: Parcel, design:
       surface.strokeCircle(center, r, "rgba(23,26,18,0.6)", 1.5, [3, 3]);
     }
   }
+}
+
+/**
+ * The vector layer land mode draws on top of `render/grid.ts`'s rasterized
+ * cells: the tee marker, a highlight ring around the green (the only
+ * draggable piece), and graded traces. Deliberately doesn't redraw
+ * fairway/rough/hazards — the cells already show those, colored straight
+ * from `lieAt`, so a second vector pass would be redundant at best and
+ * could visually disagree with the sim at worst.
+ */
+export function drawLandOverlay(surface: Surface, frame: Frame, design: Design, traces?: { golfer: GolferId; shots: Shot[] }[]): void {
+  drawTeeMarker(surface, frame, { x: 0, y: 0 });
+
+  const green = design.pieces[0];
+  if (green) {
+    const def = SHAPE_TABLE[green.shapeId];
+    const r = (def ? footprintExtent(def.footprint, green.scale) : 15) * PX_PER_YARD;
+    const center = worldToScreen(frame, green);
+    surface.strokeCircle(center, r, "#171a12", 1.8, []);
+    surface.strokeCircle(center, r + 3, "rgba(23,26,18,0.4)", 1, [3, 2]);
+  }
+
+  for (const trace of traces ?? []) drawTrace(surface, frame, trace.golfer, trace.shots);
 }

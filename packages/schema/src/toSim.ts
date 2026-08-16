@@ -23,6 +23,28 @@ export function toSimRot(portraitRotDeg: number): number {
   return portraitRotDeg - 90;
 }
 
+/**
+ * Inverse of `toSimPoint` — brings a sim-frame point (e.g. a derived
+ * fairway's corridor station, or a shot path point) back to portrait for
+ * rendering. This had been reimplemented ad hoc in two render call sites
+ * (`apps/web`'s and `packages/content`'s drawing code); giving it one home
+ * here, next to `toSimPoint`, is what "the only place portrait <-> sim
+ * rotation happens" is supposed to mean.
+ */
+export function toPortraitPoint(p: PortraitVec2): PortraitVec2 {
+  return { x: -p.y, y: p.x };
+}
+
+export function toPortraitRot(simRotDeg: number): number {
+  return simRotDeg + 90;
+}
+
+/** Inverse of `toSimCorridorStation` below — see its doc for the frame mapping this mirrors. */
+export function toPortraitCorridorStation(s: SimCorridorStation): PortraitCorridorStation {
+  const p = toPortraitPoint({ x: s.x, y: s.cy });
+  return { y: p.y, cx: p.x, halfWidth: s.halfWidth, obHalfWidth: s.obHalfWidth };
+}
+
 export interface SimInputs {
   parcel: SimParcel;
   pieces: SimPiece[];
@@ -78,6 +100,11 @@ export function toSimInputs(parcel: Parcel, design: Design): SimInputs {
   }));
 
   const fixedRegions = parcel.fixedRegions?.map(placedShapeToSimPiece);
+  // length/halfWidth are frame-invariant magnitudes, same as elevation
+  // features' radius above — passed through unrotated.
+  const landEnvelope = parcel.landEnvelope
+    ? { length: parcel.landEnvelope.length, halfWidth: parcel.landEnvelope.halfWidth }
+    : undefined;
 
   return {
     parcel: {
@@ -90,6 +117,7 @@ export function toSimInputs(parcel: Parcel, design: Design): SimInputs {
       ...(fixedRegions ? { fixedRegions } : {}),
       ...(elevationProfile ? { elevationProfile } : {}),
       ...(elevationFeatures ? { elevationFeatures } : {}),
+      ...(landEnvelope ? { landEnvelope } : {}),
     },
     pieces: design.pieces.map(placedShapeToSimPiece),
   };
