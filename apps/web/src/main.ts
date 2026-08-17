@@ -13,7 +13,7 @@ import {
   snapToGrid,
   type Frame,
 } from "./render/parcel.js";
-import { buildHillshade, paintCells, rasterizeLand, type HillshadeLayer } from "./render/grid.js";
+import { buildHillshade, paintRaster, rasterizeLand, type HillshadeLayer, type LandRaster } from "./render/grid.js";
 import { Canvas2DSurface } from "./render/canvas2d.js";
 import { mountTray } from "./ui/tray.js";
 import { mountVerdict } from "./ui/verdict.js";
@@ -190,7 +190,7 @@ let landHillshadeKey: string | null = null;
 let landHillshade: HillshadeLayer = { sample: () => 1 };
 
 let rasterKey: string | null = null;
-let rasterCells: ReturnType<typeof rasterizeLand> = [];
+let landRaster: LandRaster | null = null;
 
 function renderNow(): void {
   const { mode, parcel, design, armed, result } = store.getState();
@@ -214,12 +214,12 @@ function renderNow(): void {
     const snapped = green ? snapToGrid(green) : { x: 0, y: 0 };
     const key = `${store.getState().parcelId}:${snapped.x},${snapped.y}`;
     if (key !== rasterKey) {
-      rasterCells = rasterizeLand(parcel, design, bounds, landHillshade);
+      landRaster = rasterizeLand(parcel, design, bounds, landHillshade);
       rasterKey = key;
     }
 
     surface.clear("#87a06e");
-    paintCells(surface, frame, rasterCells);
+    if (landRaster) paintRaster(surface, frame, landRaster);
     drawLandOverlay(surface, frame, design, result ? result.traces : undefined);
     return;
   }

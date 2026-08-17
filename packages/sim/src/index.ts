@@ -26,6 +26,7 @@ export {
   gradientAt,
   playsLikeDelta,
   ROLL_FACTORS,
+  LAND_FRINGE_YARDS,
 } from "./terrain.js";
 export type { CompiledCorridor, TerrainQuery } from "./terrain.js";
 export { deriveFairway } from "./fairway.js";
@@ -57,6 +58,7 @@ export type {
   GolferStats,
   GradeMetrics,
   GradeResult,
+  LandEnvelope,
   LieType,
   Parcel,
   Piece,

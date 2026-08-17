@@ -8,6 +8,12 @@ export class Canvas2DSurface implements Surface {
   width: number;
   height: number;
 
+  // drawPixelBuffer's scratch: an offscreen canvas sized to the art buffer
+  // (not the screen), reused across calls — see its doc below.
+  private bufCanvas: HTMLCanvasElement | null = null;
+  private bufCtx: CanvasRenderingContext2D | null = null;
+  private bufImageData: ImageData | null = null;
+
   constructor(canvas: HTMLCanvasElement, width: number, height: number, dpr: number) {
     this.canvas = canvas;
     const ctx = canvas.getContext("2d");
@@ -33,12 +39,32 @@ export class Canvas2DSurface implements Surface {
     this.ctx.imageSmoothingEnabled = false;
   }
 
-  fillCell(topLeft: Point, sizePx: number, color: string): void {
-    const x = Math.round(topLeft.x);
-    const y = Math.round(topLeft.y);
-    const s = Math.round(sizePx);
-    this.ctx.fillStyle = color;
-    this.ctx.fillRect(x, y, s, s);
+  /**
+   * Draws the art buffer at its native resolution onto a scratch canvas
+   * (via `putImageData`, so no per-texel draw calls), then `drawImage`s that
+   * scratch into the destination rect scaled up by `scale` with
+   * `imageSmoothingEnabled = false` — nearest-neighbor, so tiles stay crisp
+   * blocks rather than blurring into each other. The scratch canvas/
+   * `ImageData` are reallocated only when `width`/`height` change, matching
+   * this class's existing resize()-early-returns-when-unchanged discipline.
+   */
+  drawPixelBuffer(pixels: Uint8ClampedArray, width: number, height: number, dest: Point, scale: number): void {
+    if (!this.bufCanvas || this.bufCanvas.width !== width || this.bufCanvas.height !== height) {
+      this.bufCanvas = document.createElement("canvas");
+      this.bufCanvas.width = width;
+      this.bufCanvas.height = height;
+      const bufCtx = this.bufCanvas.getContext("2d");
+      if (!bufCtx) throw new Error("Canvas2DSurface: 2d context unavailable for pixel buffer scratch");
+      this.bufCtx = bufCtx;
+      this.bufImageData = bufCtx.createImageData(width, height);
+    }
+    this.bufImageData!.data.set(pixels);
+    this.bufCtx!.putImageData(this.bufImageData!, 0, 0);
+
+    const x = Math.round(dest.x);
+    const y = Math.round(dest.y);
+    this.ctx.imageSmoothingEnabled = false;
+    this.ctx.drawImage(this.bufCanvas, 0, 0, width, height, x, y, Math.round(width * scale), Math.round(height * scale));
   }
 
   clear(color: string): void {

@@ -3,6 +3,7 @@ import { SHAPE_TABLE, toPortraitPoint } from "@redan/schema";
 import type { GolferId, Shot, Vec2 } from "@redan/sim";
 import { offsetPolyline } from "@redan/sim";
 import type { Point, Surface } from "./surface.js";
+import { TERRAIN_COLORS } from "./palette.js";
 
 /**
  * Draws a parcel/design (+ optionally a graded result's traces) onto a
@@ -13,9 +14,20 @@ import type { Point, Surface } from "./surface.js";
  * packages don't share a runtime dependency edge, and the math is small.
  */
 
-export const YARDS_PER_CELL = 8;
-export const PX_PER_CELL = 15;
-export const PX_PER_YARD = PX_PER_CELL / YARDS_PER_CELL;
+/**
+ * Scene scale is primary now, not derived from the art tile size — land
+ * mode's tile granularity (`YARDS_PER_TILE`/`PX_PER_TILE`, `grid.ts`'s art
+ * resolution) and the doc §6.4 design snap grid (`DESIGN_SNAP_YARDS`, what
+ * `snapToGrid` uses) are two independent concepts that used to collapse
+ * into one `YARDS_PER_CELL`. Splitting them means land mode's art can get
+ * finer without also making the green snap in smaller, cache-busting steps.
+ */
+export const PX_PER_YARD = 2;
+/** Land mode's art resolution — a tile is `YARDS_PER_TILE` yards, drawn `PX_PER_TILE` screen px wide. */
+export const YARDS_PER_TILE = 2;
+export const PX_PER_TILE = YARDS_PER_TILE * PX_PER_YARD;
+/** Doc §6.4's design grid — tray placement and land mode's green drag both snap here. */
+export const DESIGN_SNAP_YARDS = 8;
 const MARGIN_YARDS = 14;
 
 export interface Bounds {
@@ -32,7 +44,8 @@ function expand(b: Bounds, x: number, y: number, pad = 0): void {
   if (y + pad > b.maxY) b.maxY = y + pad;
 }
 
-function footprintExtent(shape: RegionShape, scale: number): number {
+/** Exported for editor/land.ts's green-drag hazard avoidance — a piece's own bounding-circle radius, the cheapest conservative overlap test against a circular green footprint. */
+export function footprintExtent(shape: RegionShape, scale: number): number {
   if (shape.kind === "circle") return shape.radius * scale;
   if (shape.kind === "rect") return Math.max(shape.halfLength, shape.halfWidth) * scale;
   return Math.max(...shape.points.map((p) => Math.hypot(p.x, p.y))) * scale;
@@ -112,23 +125,14 @@ export function screenToWorld(frame: Frame, p: Point): Vec2 {
   };
 }
 
-/** Snaps a world point to the nearest 8-yard grid cell (doc §6.4). */
+/** Snaps a world point to the nearest 8-yard design grid cell (doc §6.4). */
 export function snapToGrid(p: Vec2): Vec2 {
-  const snap = (v: number) => Math.round(v / YARDS_PER_CELL) * YARDS_PER_CELL;
+  const snap = (v: number) => Math.round(v / DESIGN_SNAP_YARDS) * DESIGN_SNAP_YARDS;
   return { x: snap(p.x), y: snap(p.y) };
 }
 
-/** Exported for render/grid.ts's cell rasterizer, which colors by the same `lieType`. */
-export const TERRAIN_COLORS: Record<string, string> = {
-  fairway: "#bcd9a0",
-  rough: "#93ab77",
-  green: "#dcefc0",
-  bunker: "#e8d9a8",
-  water: "#a9cfe0",
-  deep: "#6b7d43",
-  tee: "#bcd9a0",
-  ob: "#93ab77",
-};
+/** Re-exported for callers that only need the flat fill colors (tray mode, render/grid.ts). */
+export { TERRAIN_COLORS };
 
 function polygonScreenPoints(frame: Frame, points: Vec2[]): Point[] {
   return points.map((p) => worldToScreen(frame, p));
@@ -150,15 +154,23 @@ function drawPiece(surface: Surface, frame: Frame, piece: PlacedShape, fixed: bo
 
   // rot: matches @redan/schema's portrait convention (local +x at rot=0 is
   // the piece's own local frame, not necessarily "downrange" — an author
-  // rotates a piece 90deg to point its long axis along the fairway). Local
-  // coordinates map directly to screen offsets (no extra flip — footprint
-  // points are already in the piece's own local frame), and rot is applied
-  // as a screen-space rotation around the piece's center, same convention
+  // rotates a piece 90deg to point its long axis along the fairway).
+  // `sim/terrain.ts#pieceContainsPoint` is the authority for what a
+  // footprint's local frame means: rot applied as a forward rotation about
+  // the piece's world position, with local +y equal to world/portrait +y.
+  // `worldToScreen` flips y (portrait +y is uprange-to-downrange, screen +y
+  // is downward), so a local offset must get that same flip before its
+  // rotation is drawn — a rect/circle footprint is y-symmetric and hid this
+  // for every shape until an asymmetric polygon (SHAPE_TABLE's organic
+  // trees/native-area blobs) exposed it mirrored top-to-bottom. Negating
+  // `ly` here, with `radScreen` otherwise unchanged, reproduces exactly the
+  // same combined transform pieceContainsPoint's inverse expects — see the
+  // repo plan history for the derivation. Same convention
   // packages/content/src/render.ts uses for its SVG equivalent.
   const radScreen = (-piece.rot * Math.PI) / 180;
   const toScreenLocal = (lx: number, ly: number): Point => {
     const sx = lx * PX_PER_YARD;
-    const sy = ly * PX_PER_YARD;
+    const sy = -ly * PX_PER_YARD;
     const rx = sx * Math.cos(radScreen) - sy * Math.sin(radScreen);
     const ry = sx * Math.sin(radScreen) + sy * Math.cos(radScreen);
     return { x: center.x + rx, y: center.y + ry };

@@ -1,5 +1,5 @@
 import type { CorridorStation, LandEnvelope, LieType, Parcel, Piece, Vec2 } from "./types.js";
-import { pieceContainsPoint } from "./terrain.js";
+import { LAND_FRINGE_YARDS, pieceContainsPoint } from "./terrain.js";
 import { polylineLength, pointAtStation } from "./geom.js";
 
 /**
@@ -19,19 +19,54 @@ import { polylineLength, pointAtStation } from "./geom.js";
  *   inside halfWidth, else rough"; equal widths make the whole interior
  *   fairway by construction. `halfWidth: 0` means an ungraded (un-derived)
  *   land parcel is honestly all-rough, not accidentally all-fairway.
- * - The derived corridor's `obHalfWidth` is a large sentinel, not a real
- *   boundary. `lieAt`'s in-bounds test is symmetric about whichever
- *   centerline it's given (`|offset| <= obHalfWidth`); once the centerline
- *   bends to route around a hazard, there is no per-station `obHalfWidth`
- *   that holds a FIXED boundary still — matching a fixed band `[-W, W]` at a
- *   drifted station forces the drift to be zero. So the land boundary is
- *   expressed as four fixed `ob`-lie regions (see `obBands`) framing the
- *   authored rectangle instead — literal geometry, invariant under whatever
- *   centerline the router produces.
- * - The corridor extends `runout` yards past BOTH the tee and the green.
- *   `lieAt` checks `proj.beyond` before anything else, so a corridor ending
- *   exactly at the green would resolve a few feet of harmless roll-out past
- *   the pin as OB.
+ * - The derived corridor's `obHalfWidth` is a large sentinel and, for a
+ *   land-mode parcel, inert: `lieAt`'s land-mode branch (`terrain.ts`)
+ *   doesn't consult per-station `obHalfWidth` at all — a fixed band
+ *   `[-W, W]` can't hold still once the centerline itself bends to route
+ *   around a hazard (matching it forces the drift to be zero). Instead the
+ *   land boundary is a fixed, envelope-relative rectangle test in `lieAt`
+ *   itself, invariant under whatever centerline the router produces. The
+ *   boundary ring just inside it is filled with fixed `deep`-lie fringe
+ *   regions (`fringeBands`) — playable rough/scrub/treeline, not a hard
+ *   wall — and true unplayable OB only starts `LAND_FRINGE_YARDS` past the
+ *   authored rectangle, outside the renderer's visible frame (`apps/web`'s
+ *   matching `MARGIN_YARDS`). See terrain.ts#lieAt's land-mode doc for the
+ *   concrete reason this moved out of a `fixedRegions` piece: an `ob`-lie
+ *   piece can only ever ADD area, but the old design's real bug was that
+ *   `lieAt`'s arc-length "beyond" check resolved a bent corridor's own
+ *   endpoint direction as OB well inside the rectangle near a corner-placed
+ *   green — no piece placement could have fixed that; it needed `lieAt`'s
+ *   OB test to stop depending on the corridor's own (bendable) direction.
+ * - The corridor extends `runout` yards behind the tee, but only as a
+ *   zero-width stub — its sole job is to anchor `route.ts`'s
+ *   `projectToPolyline` arc-length origin the same place it's always been,
+ *   not to be mown. The green end is deliberately NOT `runout` past the
+ *   green: it used to taper linearly from the green's width to 0 over 40
+ *   yards, which reads as a triangular spike, not an apron (a past bug
+ *   report). It now ends in a semicircular cap (`CAP_PROFILE`) reaching
+ *   `greenRadius + greenApron` past the green. Either way, land mode's
+ *   `lieAt` branch resolves anything past the corridor's own arc-length
+ *   extent as plain `rough` (not OB) as long as it's still on the authored
+ *   land — so a corridor ending exactly at the cap resolves a few yards of
+ *   harmless roll-out as rough, never OB. `pointAtStation` (geom.ts)
+ *   extrapolates rather than clamps past a polyline's last segment, so
+ *   `route.ts`'s corridor-aim `pointAtStation(points, proj.s + targetDist)`
+ *   still resolves a sane heading for an advance shot that overshoots the
+ *   cap.
+ * - The corridor also leaves un-mown ground in front of the tee before a
+ *   rounded leading edge brings the fairway up to full width — mirroring
+ *   the green end's cap. How much ground depends on hole type
+ *   (`FairwaySpec`'s `teeGapLong`/`teeGapPar3` docs): a par 4/5 measures the
+ *   gap forward from the tee (a real drive crosses a stretch of native
+ *   ground before reaching fairway); a par 3 measures it backward from the
+ *   green instead (a short hole is typically carried almost entirely over
+ *   rough straight at the green, with just a mown apron in front of it, not
+ *   a full-length strip). `deriveFairway` additionally appends a small
+ *   `tee`-lie piece at the origin so the tee box itself renders distinctly;
+ *   `tee` and `fairway` share identical lie factors (terrain.ts's
+ *   `LIE_FACTORS`), so this has no scoring effect — `route.ts` already
+ *   hardcodes the first shot's lie as `"tee"` and never queries `lieAt` at
+ *   the origin.
  *
  * Deliberately NOT a grid/Dijkstra search: on an 8-neighbour grid, a hard
  * hazard cost makes the optimum graze hazard edges (no reason to stand off),
@@ -48,16 +83,36 @@ export interface FairwaySpec {
   baseHalfWidth?: number;
   /** Narrowest the fairway is allowed to pinch to next to a hazard, yards. Default 9. */
   minHalfWidth?: number;
-  /** Half-width at the tee station specifically — a tee box, not a launch pad. Default 16. */
+  /** Radius (yards) of the fairway's rounded leading edge, at the tee end — see `teeGap`. Default 16. */
   teeHalfWidth?: number;
   /** Yards of standoff a fairway edge tries to keep from a hazard boundary. Default 6. */
   hazardClearance?: number;
-  /** Yards between emitted stations. Default 40. */
+  /** Yards between emitted interior stations. Default 40. */
   stationSpacing?: number;
-  /** Yards the corridor extends straight past BOTH the tee and the green. Default 40. */
+  /** Yards the corridor's zero-width stub extends behind the tee, purely to anchor route.ts's arc-length origin. Default 40. */
   runout?: number;
-  /** Assumed green radius (yards) for widening the station nearest the green. Default 15. */
+  /** Assumed green radius (yards) for sizing the rounded cap past the green. Default 15. */
   greenRadius?: number;
+  /**
+   * Yards in front of the tee the fairway's leading edge starts, on a par 4
+   * or 5 — a real tee shot on a longer hole crosses a stretch of native
+   * ground before it reaches mown fairway; a fixed small gap (an earlier
+   * version of this used 30) read as wall-to-wall fairway on anything but
+   * the shortest holes. Eyeballed for visual plausibility, not calibrated
+   * against a real hole. Default 100.
+   */
+  teeGapLong?: number;
+  /**
+   * Yards SHORT OF THE GREEN (not of the tee) the fairway's leading edge
+   * sits, on a par 3. A short hole is typically played almost entirely
+   * over rough/native ground straight at the green — there's rarely a
+   * full-length fairway strip, just a mown apron near the green itself —
+   * so par 3s size their gap backward from the green rather than forward
+   * from the tee (see `buildStations`). Eyeballed. Default 50.
+   */
+  teeGapPar3?: number;
+  /** Yards past `greenRadius` the rounded end-of-fairway cap reaches. Default 8. */
+  greenApron?: number;
 }
 
 const DEFAULTS: Required<FairwaySpec> = {
@@ -68,13 +123,31 @@ const DEFAULTS: Required<FairwaySpec> = {
   stationSpacing: 40,
   runout: 40,
   greenRadius: 15,
+  teeGapLong: 100,
+  teeGapPar3: 50,
+  greenApron: 8,
 };
+
+/**
+ * Half-circle profile as (distance/R, halfWidth/R), used to round off both
+ * ends of the fairway instead of tapering linearly to a point. 6 stations is
+ * smooth enough at the renderer's 2-yard tiles, and `widthAt`'s linear
+ * interpolation between them never reintroduces a straight-line taper to a
+ * point the way a single zero-width station at the far end used to (the
+ * "fairway comes to a point behind the green" bug report this fixes).
+ */
+const CAP_PROFILE: [number, number][] = [
+  [0, 1],
+  [0.35, 0.937],
+  [0.6, 0.8],
+  [0.8, 0.6],
+  [0.92, 0.392],
+  [1, 0],
+];
 
 /** Grid resolution for the clearance field — matches the doc's 8-yard rendering cell. */
 const CELL = 8;
-/** OB-frame band thickness (yards) — generous enough that no shot escapes past it. */
-const OB_BAND_THICKNESS = 200;
-/** Sentinel `obHalfWidth` for a derived corridor: wide enough the corridor's own OB test never fires inside the land; the real boundary is the OB-band fixed regions. */
+/** Sentinel `obHalfWidth` for a derived corridor: land mode's `lieAt` branch ignores it entirely, but `CorridorStation` still requires a value. */
 const OB_SENTINEL = 400;
 
 const HAZARD_WEIGHT: Partial<Record<LieType, number>> = {
@@ -268,64 +341,116 @@ function deriveCenterline(
   return straight;
 }
 
+/**
+ * Builds (arc-length, half-width) pairs for one rounded cap, anchored at
+ * `anchor` — the point of FULL width `radius` — and tapering to 0 width at
+ * `anchor + dir * radius`. `dir = +1` tapers going forward in arc-length
+ * (the green end: full `capR` AT the green, narrowing past it); `dir = -1`
+ * tapers going backward (the tee end: full `lead` at the leading edge,
+ * narrowing back toward the tee gap). Always returns pairs sorted by
+ * increasing arc-length, regardless of `dir`, so callers can push them
+ * straight into a station list without re-sorting.
+ */
+function capStations(anchor: number, radius: number, dir: 1 | -1): [number, number][] {
+  const pairs: [number, number][] = CAP_PROFILE.map(([f, w]) => [anchor + dir * radius * f, radius * w]);
+  return dir === 1 ? pairs : pairs.reverse();
+}
+
 function buildStations(
   centerline: Vec2[],
   clearanceField: Float64Array,
   gw: number,
   gh: number,
   land: LandEnvelope,
+  par: number,
   spec: Required<FairwaySpec>,
 ): CorridorStation[] {
   const total = polylineLength(centerline);
-  const sList: number[] = [-spec.runout, 0];
-  let s = spec.stationSpacing;
-  while (s < total - 1) {
-    sList.push(s);
+  const capR = spec.greenRadius + spec.greenApron;
+
+  // Where the fairway's leading edge starts is measured differently by hole
+  // type (see FairwaySpec's `teeGapLong`/`teeGapPar3` docs): forward from
+  // the tee on a par 4/5, backward from the green on a par 3. Either way,
+  // clamp the result to the hole's own length so a short hole (or a green
+  // dragged close to the tee) can't produce a gap that overruns the green's
+  // own cap — see fairway.ts's module doc for why this matters (a 194-yard
+  // hole bending too sharply was a past real bug from an unclamped absolute
+  // offset).
+  const rawGap = par === 3 ? total - spec.teeGapPar3 : spec.teeGapLong;
+  const gap = clampNum(rawGap, 15, Math.max(15, total - capR - 10));
+  const lead = Math.min(spec.teeHalfWidth, Math.max(4, (total - gap - capR) * 0.5));
+
+  // (arc-length, halfWidth) pairs, built in increasing-s order:
+  //  - a zero-width stub at -runout, purely to anchor route.ts's
+  //    projectToPolyline arc-length origin at the same point it always was;
+  //  - the tee-side cap: 0 at `gap` (the leading edge), full width `lead`
+  //    at `gap + lead`;
+  //  - interior stations on the clearance field, exactly as before;
+  //  - the green-side cap: full width `capR` AT the green (total),
+  //    narrowing to 0 by `total + capR` — a semicircular apron instead of
+  //    the old linear taper to a point 40 yards downrange.
+  const pairs: [number, number][] = [];
+  pairs.push([-spec.runout, 0]);
+  for (const [s, w] of capStations(gap + lead, lead, -1)) pairs.push([s, w]);
+
+  let s = gap + lead + spec.stationSpacing;
+  while (s < total - spec.stationSpacing * 0.5) {
+    const p = pointAtStation(centerline, s);
+    const clr = sampleField(clearanceField, gw, gh, land.halfWidth, p);
+    const halfWidth = clampNum(
+      Math.min(spec.baseHalfWidth, clr - spec.hazardClearance),
+      spec.minHalfWidth,
+      spec.baseHalfWidth,
+    );
+    pairs.push([s, halfWidth]);
     s += spec.stationSpacing;
   }
-  sList.push(total);
-  sList.push(total + spec.runout);
 
-  return sList.map((sAt) => {
+  for (const [sAt, w] of capStations(total, capR, 1)) pairs.push([sAt, w]);
+
+  // Degenerate-input guard: on a very short hole the tee cap and green cap
+  // can overlap in theory even after the clamps above (e.g. a green dragged
+  // to the minimum GREEN_MARGIN from the tee). Keep the list strictly
+  // increasing in arc-length — widthAt/polylineLength/pointAtStation all
+  // assume that — by dropping any pair that doesn't advance past the last
+  // one kept.
+  const kept: [number, number][] = [];
+  for (const pair of pairs) {
+    const prev = kept[kept.length - 1];
+    if (!prev || pair[0] > prev[0] + 1e-6) kept.push(pair);
+  }
+
+  return kept.map(([sAt, halfWidth]) => {
     const p = pointAtStation(centerline, sAt);
-    let halfWidth: number;
-    if (sAt <= 0) {
-      halfWidth = spec.teeHalfWidth;
-    } else if (Math.abs(sAt - total) < 1e-6) {
-      halfWidth = spec.greenRadius + 6;
-    } else if (sAt > total) {
-      // Past the green: fairway ends, the land continues as rough (still
-      // inside the OB frame) so a long miss doesn't resolve OB by accident.
-      halfWidth = 0;
-    } else {
-      const clr = sampleField(clearanceField, gw, gh, land.halfWidth, p);
-      halfWidth = clampNum(Math.min(spec.baseHalfWidth, clr - spec.hazardClearance), spec.minHalfWidth, spec.baseHalfWidth);
-    }
     return { x: p.x, cy: p.y, halfWidth, obHalfWidth: OB_SENTINEL };
   });
 }
 
 /**
- * Two fixed `ob`-lie rectangles running the LATERAL boundary of the
- * authored land rectangle — the actual (fixed, non-bending) land edge. See
- * the module doc for why this replaces `corridor.obHalfWidth` for that job.
+ * Two fixed `deep`-lie rectangles running the LATERAL boundary of the
+ * authored land rectangle — a natural rough/scrub/treeline fringe, not a
+ * wall. `lieAt`'s land-mode rectangle test (terrain.ts) is what actually
+ * enforces the OB boundary now (at `LAND_FRINGE_YARDS` past the land
+ * envelope); this band exists purely so the ring just inside that boundary
+ * reads and plays as rough natural terrain instead of falling through to
+ * plain rough by default. See the module doc for why this replaced the old
+ * `ob`-lie band entirely.
  *
- * Only lateral, deliberately: the fore/aft boundary (behind the tee, past
- * the far end) doesn't need a fixed region at all — `lieAt` checks the
- * corridor's own arc-length extent (`proj.beyond`) before anything else, and
- * the derived corridor already extends exactly `runout` yards past both the
- * tee and the green, so that check alone resolves OB correctly there. A
- * longitudinal band was tried and rejected: with its near edge placed at the
- * land boundary (x=0 or x=length), the tee itself sits exactly on the
- * band's boundary and inclusive `<=` containment resolves it OB — the same
- * off-by-a-boundary class of bug the runout was added to prevent in the
- * other direction.
+ * Only lateral, deliberately — same reasoning the old `ob`-lie version
+ * documented: a longitudinal band whose near edge sits at the land boundary
+ * (x=0 or x=length) would have its footprint's inclusive `<=` containment
+ * touch the tee itself. That mattered when this band was `ob`-lie (it would
+ * have resolved the tee OB); it's lower-stakes now (worst case, the tee
+ * reads as `deep` instead of falling through to `fairway`), but there's no
+ * reason to risk it when the fore/aft boundary doesn't need a fringe piece
+ * to be safe: `lieAt`'s rectangle test enforces real OB there directly, and
+ * anything short of that resolves harmless `rough`.
  */
-function obBands(land: LandEnvelope, spec: Required<FairwaySpec>): Piece[] {
-  const t = OB_BAND_THICKNESS;
+function fringeBands(land: LandEnvelope, spec: Required<FairwaySpec>): Piece[] {
+  const t = LAND_FRINGE_YARDS;
   const mk = (x: number, y: number, halfLength: number, halfWidth: number): Piece => ({
-    shapeId: "ob-band",
-    lieType: "ob",
+    shapeId: "natural-fringe",
+    lieType: "deep",
     x,
     y,
     rot: 0,
@@ -341,12 +466,39 @@ function obBands(land: LandEnvelope, spec: Required<FairwaySpec>): Piece[] {
 }
 
 /**
+ * A small fixed `tee`-lie rectangle at the sim origin, purely so the tee box
+ * renders as distinct mown ground rather than the natural terrain that now
+ * sits in front of it (see module doc's `teeGap`). Sim frame: `halfLength`
+ * runs along the hole (x), `halfWidth` across it (y) — 8 x 18 yards, small
+ * enough that a green dragged to `editor/land.ts`'s minimum `GREEN_MARGIN`
+ * (20 yd from the land boundary, not the tee) can't meaningfully reach it.
+ * Has no effect on grading: `route.ts` hardcodes the first shot's lie as
+ * `"tee"` rather than querying `lieAt` at the origin, and `tee`/`fairway`
+ * share identical lie factors (terrain.ts's `LIE_FACTORS`).
+ */
+function teeBoxPiece(): Piece {
+  return {
+    shapeId: "tee-box",
+    lieType: "tee",
+    x: 0,
+    y: 0,
+    rot: 0,
+    scale: 1,
+    footprint: { kind: "rect", halfLength: 4, halfWidth: 9 },
+    cost: 1,
+  };
+}
+
+/**
  * Derives a routed fairway corridor from the tee (sim origin) to
  * `greenCenter`, bending around `parcel.fixedRegions`, and returns a new
  * `Parcel` whose `corridor` is the derived one and whose `fixedRegions`
- * gains the four OB-frame bands (see module doc). Every other field of
- * `parcel` passes through unchanged. Throws if `parcel.landEnvelope` is
- * absent — derivation only makes sense for a land-mode parcel.
+ * gains the two lateral fringe bands plus a tee box (see module doc) — the
+ * actual OB boundary is enforced by `lieAt` itself against
+ * `parcel.landEnvelope` (which passes through unchanged here), not by a
+ * fixed region. Every other field of `parcel` passes through unchanged.
+ * Throws if `parcel.landEnvelope` is absent — derivation only makes sense
+ * for a land-mode parcel.
  */
 export function deriveFairway(parcel: Parcel, greenCenter: Vec2, spec: FairwaySpec = {}): Parcel {
   const land = parcel.landEnvelope;
@@ -369,12 +521,12 @@ export function deriveFairway(parcel: Parcel, greenCenter: Vec2, spec: FairwaySp
   const clearanceField = distanceField(gw, gh, blocked);
 
   const centerline = deriveCenterline(land, greenCenter, fixedRegions, clearanceField, gw, gh);
-  const corridor = buildStations(centerline, clearanceField, gw, gh, land, full);
-  const bands = obBands(land, full);
+  const corridor = buildStations(centerline, clearanceField, gw, gh, land, parcel.par, full);
+  const bands = fringeBands(land, full);
 
   return {
     ...parcel,
     corridor,
-    fixedRegions: [...fixedRegions, ...bands],
+    fixedRegions: [...fixedRegions, ...bands, teeBoxPiece()],
   };
 }

@@ -2,6 +2,7 @@ import type {
   CorridorStation,
   ElevationFeature,
   ElevationSample,
+  LandEnvelope,
   LieType,
   Parcel,
   Piece,
@@ -33,6 +34,18 @@ const LIE_FACTORS: Record<LieType, LieFactors> = {
 export function lieFactors(lie: LieType): LieFactors {
   return LIE_FACTORS[lie];
 }
+
+/**
+ * Yards `lieAt`'s land-mode OB test pads outward from `landEnvelope`'s own
+ * `length`/`halfWidth` before resolving `"ob"` — true, unplayable OB sits
+ * this far past the authored land rectangle. Matches `apps/web`'s
+ * `MARGIN_YARDS` render padding (`render/parcel.ts`) so true OB never
+ * appears inside the visible frame; `fairway.ts#fringeBands` fills exactly
+ * this ring with playable `deep` terrain so it isn't just empty rough.
+ * Exported so fairway.ts builds fringe geometry against the same number
+ * rather than a second hardcoded copy of it.
+ */
+export const LAND_FRINGE_YARDS = 14;
 
 /**
  * Point-in-shape test, applying the piece's rot (degrees) and scale about
@@ -101,6 +114,16 @@ function widthAt(widths: number[], segIndex: number, t: number): number {
 export interface TerrainQuery {
   corridor: CompiledCorridor;
   pieces: Piece[];
+  /**
+   * Present only for land-mode parcels (`fairway.ts#deriveFairway`'s
+   * output carries the original `parcel.landEnvelope` through unchanged).
+   * `lieAt` uses this to switch OB determination from "past the routed
+   * corridor's own arc-length ends" (which a bent corridor can trigger well
+   * inside the authored land, near a corner — see fairway.ts's module doc)
+   * to "outside the authored land rectangle" — a fixed, envelope-relative
+   * boundary the router's own bend can't distort.
+   */
+  landEnvelope?: LandEnvelope;
 }
 
 /**
@@ -117,18 +140,58 @@ export function compileTerrain(parcel: Parcel, pieces: Piece[]): TerrainQuery {
   return {
     corridor: compileCorridor(parcel.corridor),
     pieces: [...pieces, ...(parcel.fixedRegions ?? [])],
+    ...(parcel.landEnvelope ? { landEnvelope: parcel.landEnvelope } : {}),
   };
 }
 
 /**
- * Resolves the lie at a point: past the corridor's arc-length extent is OB
- * first (this also fixes a bug the old scalar-corridor model had — a ball
- * far downrange of the green used to still resolve "fairway" since only
- * `|y|` was ever checked), then lateral OB, then pieces in placement order
- * (later pieces override earlier ones), then the fairway corridor, then
- * rough.
+ * Resolves the lie at a point.
+ *
+ * Land mode (`terrain.landEnvelope` present) takes a different path than a
+ * hand-authored corridor: OB is strictly "outside the authored land
+ * rectangle," checked last (after pieces), not "past the routed corridor's
+ * own arc-length ends." A `deriveFairway`-routed corridor bends to dodge
+ * hazards, and near a corner-placed green its own endpoint direction can
+ * point diagonally across land that's still well inside the rectangle —
+ * the old arc-length-first check resolved that as OB, eating into terrain
+ * the player never left (see fairway.ts's module doc). `fairway.ts` now
+ * fills the boundary ring with playable-but-punishing `deep` fringe pieces
+ * (rocks/scrub) rather than `ob`, and pads the true OB boundary outward by
+ * `FRINGE_YARDS` so it sits outside the renderer's visible frame — pieces
+ * are checked before the rectangle test specifically so those fringe pieces
+ * can claim the padded ring.
+ *
+ * A hand-authored corridor (no `landEnvelope`) keeps the original order:
+ * past the corridor's arc-length extent is OB first (this also fixes a bug
+ * the old scalar-corridor model had — a ball far downrange of the green
+ * used to still resolve "fairway" since only `|y|` was ever checked), then
+ * lateral OB, then pieces, then the fairway corridor, then rough.
  */
 export function lieAt(terrain: TerrainQuery, p: Vec2): LieType {
+  const land = terrain.landEnvelope;
+  if (land) {
+    let resolved: LieType | null = null;
+    for (const piece of terrain.pieces) {
+      if (pieceContainsPoint(piece, p)) resolved = piece.lieType;
+    }
+    if (resolved) return resolved;
+
+    const f = LAND_FRINGE_YARDS;
+    if (p.x < -f || p.x > land.length + f || Math.abs(p.y) > land.halfWidth + f) return "ob";
+
+    const proj = projectToPolyline(terrain.corridor.points, p);
+    if (proj.beyond) return "rough"; // past the routed corridor's own ends, but still on the authored land
+
+    // fairwayHalf > 0 guards a genuine zero-width stretch (fairway.ts's tee
+    // gap and the tail of its green cap both emit deliberately zero-width
+    // stations): without it, a point sitting exactly on the centerline
+    // (offset === 0) would satisfy `0 <= 0` and read as fairway even
+    // through the "unmown" gap, since equality doesn't care that the width
+    // it's comparing against is zero.
+    const fairwayHalf = widthAt(terrain.corridor.halfWidths, proj.segIndex, proj.t);
+    return fairwayHalf > 0 && Math.abs(proj.offset) <= fairwayHalf ? "fairway" : "rough";
+  }
+
   const proj: PolylineProjection = projectToPolyline(terrain.corridor.points, p);
   if (proj.beyond) return "ob";
 
